@@ -18,7 +18,7 @@ A Progressive Web App (PWA) designed for managing students (jamaah), classes (ke
 - [Getting Started](#getting-started)
 - [Development Roadmap](#development-roadmap)
 - [Offline-First Design](#offline-first-design)
-- [Future: Android APK](#future-android-apk)
+- [Android APK Build](#android-apk-build)
 - [License](#license)
 
 ---
@@ -83,30 +83,41 @@ PPG is built with an **offline-first architecture**, meaning:
 
 ```
 /PPG
-├── /app
-│   ├── /pages          # HTML pages for each feature
-│   ├── /components     # Reusable UI components
-│   ├── /services       # Business logic and data services
+├── /app                    # Web application source
+│   ├── index.html          # Main entry point (for Capacitor)
+│   ├── /pages              # HTML pages for each feature
+│   ├── /components         # Reusable UI components
+│   ├── /services           # Business logic and data services
 │   │   ├── jamaahService.js
-│   │   └── kehadiranService.js
-│   ├── /db             # Database initialization and migrations
-│   │   ├── db.js       # SQLite initialization
-│   │   └── migrate.js  # Schema migrations
-│   ├── /backup         # Hierarchical backup system
-│   │   ├── export.js   # Export to .ppg file
-│   │   ├── import.js   # Import and merge
-│   │   ├── hierarchy.js # Level validation
-│   │   └── backup.js   # Legacy backup utilities
-│   ├── /akademik       # Academic report engine
+│   │   ├── kehadiranService.js
+│   │   └── fileService.js  # Cross-platform file operations
+│   ├── /db                 # Database initialization and migrations
+│   │   ├── db.js           # SQLite initialization (web + native)
+│   │   └── migrate.js      # Schema migrations
+│   ├── /backup             # Hierarchical backup system
+│   │   ├── export.js       # Export to .ppg file
+│   │   ├── import.js       # Import and merge
+│   │   ├── hierarchy.js    # Level validation
+│   │   └── backup.js       # Legacy backup utilities
+│   ├── /akademik           # Academic report engine
 │   │   ├── kehadiranEngine.js  # Attendance calculation
 │   │   ├── materiEngine.js     # Subject mastery analysis
 │   │   ├── akhlaqEngine.js     # Character assessment
 │   │   ├── rekomendasiEngine.js # Rule-based recommendations
 │   │   └── raporEngine.js      # Main orchestrator
-│   └── /roles          # Role-based access control
+│   └── /roles              # Role-based access control
 │       └── roles.js
-├── /android            # Capacitor Android project (future)
-├── /schema             # SQL schema files
+├── /android                # Capacitor Android project
+│   ├── /app                # Android app module
+│   │   └── /src/main
+│   │       ├── /assets     # Web assets (auto-copied)
+│   │       ├── /res        # Android resources (icons, splash)
+│   │       └── AndroidManifest.xml
+│   ├── build.gradle
+│   └── gradlew
+├── /resources              # Source assets for customization
+│   └── README.md           # Asset generation instructions
+├── /schema                 # SQL schema files
 │   ├── jamaah.sql
 │   ├── kelas.sql
 │   ├── kehadiran.sql
@@ -114,12 +125,14 @@ PPG is built with an **offline-first architecture**, meaning:
 │   ├── kelas_mandiri.sql
 │   ├── catatan_pembinaan.sql
 │   ├── rekomendasi_pendidikan.sql
-│   ├── backup_sync.sql # Backup & merge logging tables
-│   ├── rapor_periode.sql    # Main rapor with attendance summary
-│   ├── rapor_materi.sql     # Subject mastery assessment
-│   ├── rapor_akhlaq.sql     # Character assessment
+│   ├── backup_sync.sql     # Backup & merge logging tables
+│   ├── rapor_periode.sql   # Main rapor with attendance summary
+│   ├── rapor_materi.sql    # Subject mastery assessment
+│   ├── rapor_akhlaq.sql    # Character assessment
 │   └── rapor_rekomendasi.sql # Rule-based recommendations
-├── index.html          # Main PWA entry point
+├── index.html              # Root entry (redirects to /app)
+├── package.json            # NPM dependencies and scripts
+├── capacitor.config.json   # Capacitor configuration
 └── README.md
 ```
 
@@ -651,12 +664,13 @@ await KehadiranService.bulkRecordAttendance(session.id, [
 - [ ] Conflict resolution UI
 - [ ] Reports and analytics
 
-### Phase 6: Android APK (Planned)
+### Phase 6: Android APK (Completed)
 
-- [ ] Capacitor project setup
-- [ ] Native SQLite integration
-- [ ] Android build configuration
-- [ ] Play Store preparation
+- [x] Capacitor project setup
+- [x] Native SQLite integration (@capacitor-community/sqlite)
+- [x] File system access for backup import/export
+- [x] Android build configuration
+- [ ] Play Store preparation (future)
 
 ---
 
@@ -707,29 +721,158 @@ Each record includes fields for future synchronization:
 
 ---
 
-## Future: Android APK
+## Android APK Build
 
-### Capacitor Integration
+PPG can be built as a native Android APK using Capacitor. The app is fully offline and requires no internet connection.
 
-PPG is designed to be wrapped as a native Android app using Capacitor:
+### Prerequisites
+
+1. **Node.js** (v18 or later)
+2. **Android Studio** (with Android SDK)
+3. **Java JDK** (v17 recommended)
+
+### Quick Start
 
 ```bash
-# Future commands (Phase 5)
-npm install @capacitor/core @capacitor/cli
-npm install @capacitor-community/sqlite
-npx cap init PPG com.ppg.app
-npx cap add android
-npx cap sync
+# 1. Install dependencies
+npm install
+
+# 2. Sync Capacitor with Android
+npx cap sync android
+
+# 3. Build debug APK
+cd android && ./gradlew assembleDebug
+
+# APK location: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Building Release APK
+
+For production release:
+
+```bash
+# Build release APK (unsigned)
+cd android && ./gradlew assembleRelease
+
+# APK location: android/app/build/outputs/apk/release/app-release-unsigned.apk
+```
+
+#### Signing for Play Store
+
+1. Generate a keystore:
+   ```bash
+   keytool -genkey -v -keystore ppg-release.keystore -alias ppg -keyalg RSA -keysize 2048 -validity 10000
+   ```
+
+2. Add to `android/app/build.gradle`:
+   ```groovy
+   android {
+       signingConfigs {
+           release {
+               storeFile file('ppg-release.keystore')
+               storePassword 'your-password'
+               keyAlias 'ppg'
+               keyPassword 'your-key-password'
+           }
+       }
+       buildTypes {
+           release {
+               signingConfig signingConfigs.release
+           }
+       }
+   }
+   ```
+
+3. Build signed APK:
+   ```bash
+   cd android && ./gradlew assembleRelease
+   ```
+
+### Install on Phone
+
+#### Using ADB (Debug Mode)
+```bash
+# Enable USB debugging on your phone
+# Connect phone via USB
+adb install android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+#### Manual Installation
+1. Copy the APK to your phone
+2. Enable "Install from unknown sources" in Settings
+3. Open the APK file to install
+
+### Development Workflow
+
+```bash
+# Make changes to web code in /app directory
+
+# Sync changes to Android
+npx cap sync android
+
+# Run on connected device
+npx cap run android
+
+# Open in Android Studio (for debugging)
 npx cap open android
 ```
 
-### Native Features (Planned)
+### NPM Scripts
 
-- **SQLite**: Native database via `@capacitor-community/sqlite`
-- **File System**: Local backup storage
-- **Biometrics**: Fingerprint/face authentication
-- **Camera**: Photo capture for student profiles
-- **Share**: Export reports as PDF/images
+| Command | Description |
+|---------|-------------|
+| `npm run cap:sync` | Sync web assets to Android |
+| `npm run cap:open:android` | Open in Android Studio |
+| `npm run android:build` | Build debug APK |
+| `npm run android:build:release` | Build release APK |
+| `npm run android:run` | Run on connected device |
+
+### Native Features
+
+PPG Android includes these native capabilities:
+
+| Feature | Plugin | Status |
+|---------|--------|--------|
+| **Native SQLite** | @capacitor-community/sqlite | Active |
+| **File System** | @capacitor/filesystem | Active |
+| **Splash Screen** | @capacitor/splash-screen | Active |
+| **Status Bar** | @capacitor/status-bar | Active |
+| **Biometrics** | Planned | Future |
+| **SQLCipher** | Planned | Future |
+
+### Backup Files on Android
+
+PPG saves backup files to `Documents/PPG_Backup/`:
+- **Export**: Creates `.ppg` file in Documents/PPG_Backup/
+- **Import**: Reads from Documents/PPG_Backup/ or Downloads/
+
+### App Information
+
+| Property | Value |
+|----------|-------|
+| App ID | com.ppg.offline |
+| App Name | PPG Offline |
+| Min SDK | 22 (Android 5.1) |
+| Target SDK | 34 (Android 14) |
+| Web Directory | /app |
+
+### Customizing App Icon
+
+See `/resources/README.md` for instructions on generating app icons.
+
+### Troubleshooting
+
+**Build fails with SDK error:**
+- Ensure Android SDK is installed via Android Studio
+- Set ANDROID_HOME environment variable
+
+**App crashes on launch:**
+- Check logcat: `adb logcat -s "Capacitor"`
+- Ensure all plugins are properly synced
+
+**Database not persisting:**
+- Native SQLite stores in app's internal storage
+- Check file permissions for backup folder
 
 ---
 

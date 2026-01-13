@@ -1,0 +1,47 @@
+{
+  "name": "ppg-offline",
+  "version": "1.0.0",
+  "description": "PPG - Pengajian Progress Guru - Offline-First Islamic Education Management",
+  "main": "index.html",
+  "scripts": {
+    "serve": "npx serve .",
+    "build": "echo 'No build step required - vanilla JS'",
+    "cap:init": "npx cap init 'PPG Offline' com.ppg.offline --web-dir app",
+    "cap:add:android": "npx cap add android",
+    "cap:sync": "npx cap sync",
+    "cap:open:android": "npx cap open android",
+    "android:build": "cd android && ./gradlew assembleDebug",
+    "android:build:release": "cd android && ./gradlew assembleRelease",
+    "android:run": "npx cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/filesystem": "^6.0.0",
+    "@capacitor/splash-screen": "^6.0.0",
+    "@capacitor/status-bar": "^6.0.0",
+    "@capacitor-community/sqlite": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
+    "serve": "^14.2.0"
+  },
+  "keywords": [
+    "islamic-education",
+    "offline-first",
+    "pwa",
+    "capacitor",
+    "android",
+    "sqlite"
+  ],
+  "author": "PPG Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/PPG.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

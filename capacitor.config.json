@@ -1,0 +1,44 @@
+{
+  "appId": "com.ppg.offline",
+  "appName": "PPG Offline",
+  "webDir": "app",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#1a5f2a",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": true
+    },
+    "CapacitorSQLite": {
+      "iosDatabaseLocation": "Library/CapacitorDatabase",
+      "iosIsEncryption": false,
+      "iosKeychainPrefix": "com.ppg.offline",
+      "iosBiometric": {
+        "biometricAuth": false,
+        "biometricTitle": "Biometric login for PPG"
+      },
+      "androidIsEncryption": false,
+      "androidBiometric": {
+        "biometricAuth": false,
+        "biometricTitle": "Biometric login for PPG"
+      }
+    },
+    "StatusBar": {
+      "backgroundColor": "#1a5f2a",
+      "style": "LIGHT"
+    }
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  }
+}

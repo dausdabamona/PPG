@@ -14,6 +14,7 @@
 
 import DB from '../db/db.js';
 import { LEVELS, getLevelName, isValidLevel, getTargetLevel } from './hierarchy.js';
+import FileService from '../services/fileService.js';
 
 /**
  * Application version for backup compatibility
@@ -285,26 +286,21 @@ async function createBackup(options) {
         // Log operation
         await logBackupOperation(metadata, fileName, checksum);
 
-        // Create download link
-        const url = URL.createObjectURL(zipBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
+        // Save file using FileService (supports both web and Android)
+        const saveResult = await FileService.saveBackupFile(zipBlob, fileName);
 
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Cleanup
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        if (!saveResult.success) {
+            throw new Error(saveResult.error || 'Failed to save backup file');
+        }
 
         result.success = true;
         result.fileName = fileName;
         result.checksum = checksum;
         result.metadata = metadata;
+        result.path = saveResult.path;
+        result.message = saveResult.message;
 
-        console.log('[Export] Backup complete:', fileName);
+        console.log('[Export] Backup complete:', fileName, saveResult.path);
 
     } catch (error) {
         console.error('[Export] Backup failed:', error);

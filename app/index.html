@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a5f2a">
+    <meta name="description" content="PPG - Sistem Manajemen Pengajian Offline-First">
+
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PPG">
+
+    <title>PPG - Pengajian Progress Guru</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+
+    <style>
+        /* =================================================================
+           CSS Variables & Reset
+           ================================================================= */
+        :root {
+            --primary-color: #1a5f2a;
+            --primary-light: #2d8a3e;
+            --primary-dark: #0d3d18;
+            --secondary-color: #f5f5f5;
+            --accent-color: #ffc107;
+            --text-color: #333;
+            --text-light: #666;
+            --text-muted: #999;
+            --border-color: #ddd;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --info-color: #17a2b8;
+            --white: #fff;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-lg: 0 4px 8px rgba(0,0,0,0.15);
+            --radius: 8px;
+            --radius-sm: 4px;
+            --header-height: 56px;
+            --nav-height: 60px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* =================================================================
+           Header
+           ================================================================= */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+            color: var(--white);
+            padding: 0 16px;
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .header-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: var(--white);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .header-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* =================================================================
+           Main Content
+           ================================================================= */
+        .main {
+            flex: 1;
+            padding: calc(var(--header-height) + 16px) 16px calc(var(--nav-height) + 16px);
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* =================================================================
+           Cards
+           ================================================================= */
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-body {
+            padding: 16px;
+        }
+
+        /* =================================================================
+           Menu Grid
+           ================================================================= */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .menu-item {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 20px 16px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text-color);
+            box-shadow: var(--shadow);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .menu-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .menu-item:active {
+            transform: translateY(0);
+        }
+
+        .menu-icon {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .menu-label {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .menu-sublabel {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* =================================================================
+           Stats Cards
+           ================================================================= */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 16px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .stat-number {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* =================================================================
+           Bottom Navigation
+           ================================================================= */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--white);
+            height: var(--nav-height);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-muted);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            transition: color 0.2s;
+        }
+
+        .nav-item.active {
+            color: var(--primary-color);
+        }
+
+        .nav-item:hover {
+            color: var(--primary-color);
+        }
+
+        .nav-icon {
+            font-size: 1.5rem;
+            margin-bottom: 2px;
+        }
+
+        .nav-label {
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        /* =================================================================
+           Loading & Status
+           ================================================================= */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-success { background: #d4edda; color: #155724; }
+        .status-warning { background: #fff3cd; color: #856404; }
+        .status-danger { background: #f8d7da; color: #721c24; }
+        .status-info { background: #d1ecf1; color: #0c5460; }
+
+        /* =================================================================
+           Buttons
+           ================================================================= */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-light);
+        }
+
+        .btn-block {
+            display: flex;
+            width: 100%;
+        }
+
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: var(--white);
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-info {
+            background: var(--info-color);
+            color: var(--white);
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .btn-row .btn {
+            flex: 1;
+        }
+
+        /* =================================================================
+           Modal
+           ================================================================= */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--white);
+            border-radius: var(--radius);
+            max-width: 400px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .modal-body {
+            padding: 16px;
+        }
+
+        .modal-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            background: var(--white);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b6d4fe;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 0.85rem;
+            color: #084298;
+            margin-bottom: 16px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffecb5;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 0.85rem;
+            color: #664d03;
+            margin-bottom: 16px;
+        }
+
+        .success-box {
+            background: #d1e7dd;
+            border: 1px solid #badbcc;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 0.85rem;
+            color: #0f5132;
+            margin-bottom: 16px;
+        }
+
+        .error-box {
+            background: #f8d7da;
+            border: 1px solid #f5c2c7;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 0.85rem;
+            color: #842029;
+            margin-bottom: 16px;
+        }
+
+        /* =================================================================
+           Welcome Section
+           ================================================================= */
+        .welcome {
+            text-align: center;
+            padding: 24px 16px;
+            margin-bottom: 8px;
+        }
+
+        .welcome-greeting {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .welcome-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-top: 4px;
+        }
+
+        .welcome-role {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 12px;
+            background: var(--primary-color);
+            color: var(--white);
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        /* =================================================================
+           Offline Indicator
+           ================================================================= */
+        .offline-indicator {
+            display: none;
+            position: fixed;
+            top: var(--header-height);
+            left: 0;
+            right: 0;
+            background: var(--warning-color);
+            color: #333;
+            text-align: center;
+            padding: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            z-index: 99;
+        }
+
+        .offline-indicator.show {
+            display: block;
+        }
+
+        /* =================================================================
+           Page Transitions
+           ================================================================= */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* =================================================================
+           Responsive
+           ================================================================= */
+        @media (min-width: 768px) {
+            .menu-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        /* =================================================================
+           Rapor Styles
+           ================================================================= */
+        .rapor-section {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .rapor-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .rapor-section-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+
+        .rapor-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .rapor-stat-item {
+            background: var(--secondary-color);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+        }
+
+        .rapor-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .rapor-stat-value {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .rapor-predikat {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .predikat-istimewa { background: #d4edda; color: #155724; }
+        .predikat-sangat-baik { background: #cce5ff; color: #004085; }
+        .predikat-baik { background: #d1ecf1; color: #0c5460; }
+        .predikat-cukup { background: #fff3cd; color: #856404; }
+        .predikat-perlu-pembinaan { background: #f8d7da; color: #721c24; }
+
+        .rapor-narrative {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-color);
+            white-space: pre-line;
+        }
+
+        .rapor-rekomendasi-item {
+            background: var(--secondary-color);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+
+        .rapor-rekomendasi-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .rapor-rekomendasi-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .rapor-rekomendasi-text {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .rapor-priority-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .priority-urgent { background: #dc3545; color: white; }
+        .priority-tinggi { background: #fd7e14; color: white; }
+        .priority-normal { background: #6c757d; color: white; }
+        .priority-rendah { background: #28a745; color: white; }
+
+        .rapor-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: var(--secondary-color);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+
+        .rapor-list-item:hover {
+            background: var(--border-color);
+        }
+
+        .rapor-list-info {
+            flex: 1;
+        }
+
+        .rapor-list-periode {
+            font-weight: 600;
+        }
+
+        .rapor-list-date {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .materi-table {
+            width: 100%;
+            font-size: 0.85rem;
+            border-collapse: collapse;
+        }
+
+        .materi-table th,
+        .materi-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .materi-table th {
+            background: var(--secondary-color);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1>PPG</h1>
+        <div class="header-actions">
+            <button class="header-btn" id="btnSync" title="Sinkronisasi">
+                <span>&#x21bb;</span>
+            </button>
+            <button class="header-btn" id="btnSettings" title="Pengaturan">
+                <span>&#x2699;</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Offline Indicator -->
+    <div class="offline-indicator" id="offlineIndicator">
+        Mode Offline - Data tersimpan di perangkat
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Loading State -->
+        <div class="loading" id="loadingState">
+            <div class="spinner"></div>
+            <p>Memuat database...</p>
+        </div>
+
+        <!-- Home Page -->
+        <div class="page" id="homePage">
+            <!-- Welcome Section -->
+            <div class="welcome">
+                <p class="welcome-greeting">Assalamu'alaikum,</p>
+                <p class="welcome-name" id="userName">Pengguna</p>
+                <span class="welcome-role" id="userRole">Mubaligh</span>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-number" id="statJamaah">0</div>
+                    <div class="stat-label">Jamaah</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statKelas">0</div>
+                    <div class="stat-label">Kelas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statHariIni">0</div>
+                    <div class="stat-label">Hari Ini</div>
+                </div>
+            </div>
+
+            <!-- Main Menu -->
+            <div class="card">
+                <div class="card-header">
+                    <span>Menu Utama</span>
+                </div>
+                <div class="card-body">
+                    <div class="menu-grid">
+                        <a href="#jamaah" class="menu-item" onclick="navigateTo('jamaah')">
+                            <span class="menu-icon">&#128100;</span>
+                            <span class="menu-label">Jamaah</span>
+                            <span class="menu-sublabel">Kelola santri</span>
+                        </a>
+                        <a href="#kelas" class="menu-item" onclick="navigateTo('kelas')">
+                            <span class="menu-icon">&#128218;</span>
+                            <span class="menu-label">Kelas</span>
+                            <span class="menu-sublabel">Pengajian</span>
+                        </a>
+                        <a href="#kehadiran" class="menu-item" onclick="navigateTo('kehadiran')">
+                            <span class="menu-icon">&#9989;</span>
+                            <span class="menu-label">Kehadiran</span>
+                            <span class="menu-sublabel">Absensi</span>
+                        </a>
+                        <a href="#penilaian" class="menu-item" onclick="navigateTo('penilaian')">
+                            <span class="menu-icon">&#128202;</span>
+                            <span class="menu-label">Penilaian</span>
+                            <span class="menu-sublabel">Nilai & akhlak</span>
+                        </a>
+                        <a href="#mandiri" class="menu-item" onclick="navigateTo('mandiri')">
+                            <span class="menu-icon">&#128214;</span>
+                            <span class="menu-label">Kelas Mandiri</span>
+                            <span class="menu-sublabel">Orang tua</span>
+                        </a>
+                        <a href="#catatan" class="menu-item" onclick="navigateTo('catatan')">
+                            <span class="menu-icon">&#128221;</span>
+                            <span class="menu-label">Catatan</span>
+                            <span class="menu-sublabel">Pembinaan</span>
+                        </a>
+                        <a href="#rapor" class="menu-item" onclick="navigateTo('rapor')">
+                            <span class="menu-icon">&#128220;</span>
+                            <span class="menu-label">Rapor</span>
+                            <span class="menu-sublabel">Laporan akademik</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <span>Aksi Cepat</span>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary btn-block" onclick="quickAttendance()">
+                        <span>&#9989;</span>
+                        Absen Hari Ini
+                    </button>
+                </div>
+            </div>
+
+            <!-- Backup & Sync -->
+            <div class="card">
+                <div class="card-header">
+                    <span>&#128230;</span>
+                    <span>Backup & Sinkronisasi</span>
+                </div>
+                <div class="card-body">
+                    <div class="info-box">
+                        <strong>Hierarki Backup:</strong><br>
+                        Orang Tua &#8594; Mubaligh &#8594; PC &#8594; DPD &#8594; DPW
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-success" onclick="showExportModal()">
+                            <span>&#8593;</span>
+                            Export Backup
+                        </button>
+                        <button class="btn btn-info" onclick="showImportModal()">
+                            <span>&#8595;</span>
+                            Import Backup
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jamaah Page (Placeholder) -->
+        <div class="page" id="jamaahPage">
+            <div class="card">
+                <div class="card-header">
+                    <span>&#128100;</span>
+                    <span>Daftar Jamaah</span>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        Halaman ini akan menampilkan daftar jamaah.<br>
+                        <small>Fitur dalam pengembangan</small>
+                    </p>
+                    <button class="btn btn-primary btn-block" onclick="testAddJamaah()">
+                        + Tambah Jamaah (Test)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rapor Page -->
+        <div class="page" id="raporPage">
+            <div class="card">
+                <div class="card-header">
+                    <span>&#128220;</span>
+                    <span>Rapor Akademik</span>
+                </div>
+                <div class="card-body">
+                    <div class="info-box">
+                        <strong>Model C:</strong> Numerik + Predikat + Narasi + Rekomendasi<br>
+                        <small>Laporan komprehensif perkembangan jamaah</small>
+                    </div>
+
+                    <!-- Generate Rapor Form -->
+                    <div class="form-group">
+                        <label class="form-label">Jamaah</label>
+                        <select class="form-select" id="raporJamaah">
+                            <option value="">-- Pilih Jamaah --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Periode</label>
+                        <input type="text" class="form-input" id="raporPeriode" placeholder="Contoh: 2024-S1">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tahun Ajaran</label>
+                        <input type="text" class="form-input" id="raporTahunAjaran" placeholder="Contoh: 2024/2025">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Semester</label>
+                        <select class="form-select" id="raporSemester">
+                            <option value="1">1 - Ganjil</option>
+                            <option value="2">2 - Genap</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Mulai</label>
+                        <input type="date" class="form-input" id="raporTglMulai">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Selesai</label>
+                        <input type="date" class="form-input" id="raporTglSelesai">
+                    </div>
+
+                    <button class="btn btn-primary btn-block" onclick="generateRapor()">
+                        <span>&#128220;</span>
+                        Generate Rapor
+                    </button>
+                </div>
+            </div>
+
+            <!-- Rapor Result -->
+            <div class="card" id="raporResultCard" style="display: none;">
+                <div class="card-header">
+                    <span>&#128203;</span>
+                    <span>Hasil Rapor</span>
+                </div>
+                <div class="card-body" id="raporResult">
+                </div>
+            </div>
+
+            <!-- Existing Rapor List -->
+            <div class="card">
+                <div class="card-header">
+                    <span>&#128196;</span>
+                    <span>Riwayat Rapor</span>
+                </div>
+                <div class="card-body" id="raporList">
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        Pilih jamaah untuk melihat riwayat rapor
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Other pages will be added here -->
+    </main>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="exportModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span>&#8593; Export Backup</span>
+                <button class="modal-close" onclick="closeModal('exportModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="info-box">
+                    Backup akan diekspor sebagai file <strong>.ppg</strong> yang dapat diimpor oleh level di atas Anda.
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Level Anda</label>
+                    <select class="form-select" id="exportLevel">
+                        <option value="orang_tua">Orang Tua</option>
+                        <option value="mubaligh" selected>Mubaligh</option>
+                        <option value="pc">Pimpinan Cabang (PC)</option>
+                        <option value="dpd">Dewan Pimpinan Daerah (DPD)</option>
+                        <option value="dpw">Dewan Pimpinan Wilayah (DPW)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Nama Wilayah (opsional)</label>
+                    <input type="text" class="form-input" id="exportWilayah" placeholder="Contoh: Cabang Jakarta Selatan">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Catatan (opsional)</label>
+                    <input type="text" class="form-input" id="exportNotes" placeholder="Catatan untuk backup ini">
+                </div>
+
+                <div id="exportResult"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('exportModal')">Batal</button>
+                <button class="btn btn-success" id="btnDoExport" onclick="doExport()">
+                    <span>&#8593;</span> Export
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span>&#8595; Import Backup</span>
+                <button class="modal-close" onclick="closeModal('importModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <strong>Validasi Hierarki:</strong><br>
+                    Anda hanya dapat mengimpor dari level tepat di bawah Anda.
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Level Anda</label>
+                    <select class="form-select" id="importLevel">
+                        <option value="mubaligh" selected>Mubaligh (impor dari Orang Tua)</option>
+                        <option value="pc">PC (impor dari Mubaligh)</option>
+                        <option value="dpd">DPD (impor dari PC)</option>
+                        <option value="dpw">DPW (impor dari DPD)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Pilih File Backup (.ppg)</label>
+                    <input type="file" class="form-input" id="importFile" accept=".ppg,.json" onchange="previewImportFile()">
+                </div>
+
+                <div id="importPreview"></div>
+                <div id="importResult"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('importModal')">Batal</button>
+                <button class="btn btn-info" id="btnDoImport" onclick="doImport()" disabled>
+                    <span>&#8595;</span> Import & Merge
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for import -->
+    <input type="file" id="hiddenFileInput" accept=".ppg,.json" style="display:none">
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="#home" class="nav-item active" onclick="navigateTo('home')">
+            <span class="nav-icon">&#127968;</span>
+            <span class="nav-label">Beranda</span>
+        </a>
+        <a href="#jamaah" class="nav-item" onclick="navigateTo('jamaah')">
+            <span class="nav-icon">&#128100;</span>
+            <span class="nav-label">Jamaah</span>
+        </a>
+        <a href="#kehadiran" class="nav-item" onclick="navigateTo('kehadiran')">
+            <span class="nav-icon">&#9989;</span>
+            <span class="nav-label">Absen</span>
+        </a>
+        <a href="#penilaian" class="nav-item" onclick="navigateTo('penilaian')">
+            <span class="nav-icon">&#128202;</span>
+            <span class="nav-label">Nilai</span>
+        </a>
+        <a href="#more" class="nav-item" onclick="navigateTo('more')">
+            <span class="nav-icon">&#8942;</span>
+            <span class="nav-label">Lainnya</span>
+        </a>
+    </nav>
+
+    <!-- Scripts -->
+    <script type="module">
+        import DB from './db/db.js';
+        import Migrate from './db/migrate.js';
+        import JamaahService from './services/jamaahService.js';
+        import BackupExport from './backup/export.js';
+        import BackupImport from './backup/import.js';
+        import Hierarchy from './backup/hierarchy.js';
+        import RaporEngine from './akademik/raporEngine.js';
+
+        // Make available globally for onclick handlers
+        window.DB = DB;
+        window.JamaahService = JamaahService;
+        window.BackupExport = BackupExport;
+        window.BackupImport = BackupImport;
+        window.Hierarchy = Hierarchy;
+        window.RaporEngine = RaporEngine;
+
+        // =================================================================
+        // App Initialization
+        // =================================================================
+        async function initApp() {
+            console.log('[App] Initializing...');
+
+            try {
+                // Initialize database
+                await DB.init();
+                console.log('[App] Database initialized');
+
+                // Run migrations
+                const migrationResult = await Migrate.run();
+                console.log('[App] Migrations complete:', migrationResult);
+
+                // Load initial data
+                await loadStats();
+
+                // Show home page
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('homePage').classList.add('active');
+
+                console.log('[App] Ready!');
+            } catch (error) {
+                console.error('[App] Initialization failed:', error);
+                document.getElementById('loadingState').innerHTML = `
+                    <p style="color: var(--danger-color);">
+                        Gagal memuat aplikasi.<br>
+                        <small>${error.message}</small>
+                    </p>
+                `;
+            }
+        }
+
+        // =================================================================
+        // Load Statistics
+        // =================================================================
+        async function loadStats() {
+            try {
+                const jamaahCount = await JamaahService.count();
+                document.getElementById('statJamaah').textContent = jamaahCount;
+
+                // Placeholder for other stats
+                document.getElementById('statKelas').textContent = '0';
+                document.getElementById('statHariIni').textContent = '0';
+            } catch (error) {
+                console.error('[App] Failed to load stats:', error);
+            }
+        }
+        window.loadStats = loadStats;
+
+        // =================================================================
+        // Navigation
+        // =================================================================
+        window.navigateTo = function(page) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+            // Show target page
+            const targetPage = document.getElementById(page + 'Page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+            } else {
+                // Show placeholder for pages not yet created
+                document.getElementById('homePage').classList.add('active');
+                alert(`Halaman "${page}" dalam pengembangan`);
+                return;
+            }
+
+            // Update nav active state
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('href') === '#' + page) {
+                    item.classList.add('active');
+                }
+            });
+        };
+
+        // =================================================================
+        // Quick Actions
+        // =================================================================
+        window.quickAttendance = function() {
+            alert('Fitur absen cepat dalam pengembangan');
+        };
+
+        // =================================================================
+        // Test Functions
+        // =================================================================
+        window.testAddJamaah = async function() {
+            try {
+                const jamaah = await JamaahService.create({
+                    nama_lengkap: 'Test Jamaah ' + Date.now(),
+                    nama_panggilan: 'Test',
+                    jenis_kelamin: 'L',
+                    nama_orang_tua: 'Orang Tua Test'
+                });
+                alert('Jamaah ditambahkan: ' + jamaah.nama_lengkap);
+                await loadStats();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        };
+
+        // =================================================================
+        // Offline Detection
+        // =================================================================
+        function updateOnlineStatus() {
+            const indicator = document.getElementById('offlineIndicator');
+            if (!navigator.onLine) {
+                indicator.classList.add('show');
+            } else {
+                indicator.classList.remove('show');
+            }
+        }
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+
+        // =================================================================
+        // Modal Functions
+        // =================================================================
+        window.showExportModal = function() {
+            document.getElementById('exportResult').innerHTML = '';
+            document.getElementById('exportModal').classList.add('show');
+        };
+
+        window.showImportModal = function() {
+            document.getElementById('importPreview').innerHTML = '';
+            document.getElementById('importResult').innerHTML = '';
+            document.getElementById('importFile').value = '';
+            document.getElementById('btnDoImport').disabled = true;
+            document.getElementById('importModal').classList.add('show');
+        };
+
+        window.closeModal = function(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        };
+
+        // Close modal when clicking outside
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
+
+        // =================================================================
+        // Export Backup
+        // =================================================================
+        window.doExport = async function() {
+            const resultDiv = document.getElementById('exportResult');
+            const btn = document.getElementById('btnDoExport');
+
+            const level = document.getElementById('exportLevel').value;
+            const wilayah = document.getElementById('exportWilayah').value;
+            const notes = document.getElementById('exportNotes').value;
+
+            resultDiv.innerHTML = '<div class="info-box">Memproses export...</div>';
+            btn.disabled = true;
+
+            try {
+                // Load JSZip if needed
+                await BackupExport.loadJSZip();
+
+                const result = await BackupExport.createBackup({
+                    level: level,
+                    wilayah_id: wilayah ? DB.generateUUID() : null,
+                    wilayah_name: wilayah,
+                    created_by: 'current_user',
+                    created_by_name: 'Current User',
+                    notes: notes
+                });
+
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success-box">
+                            <strong>Export Berhasil!</strong><br>
+                            File: ${result.fileName}<br>
+                            Total record: ${result.metadata.total_records}<br>
+                            Checksum: ${result.checksum.substring(0, 16)}...
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error-box">
+                            <strong>Export Gagal</strong><br>
+                            ${result.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+
+            btn.disabled = false;
+        };
+
+        // =================================================================
+        // Import Backup
+        // =================================================================
+        let selectedImportFile = null;
+
+        window.previewImportFile = async function() {
+            const fileInput = document.getElementById('importFile');
+            const previewDiv = document.getElementById('importPreview');
+            const importBtn = document.getElementById('btnDoImport');
+            const importerLevel = document.getElementById('importLevel').value;
+
+            selectedImportFile = fileInput.files[0];
+
+            if (!selectedImportFile) {
+                previewDiv.innerHTML = '';
+                importBtn.disabled = true;
+                return;
+            }
+
+            previewDiv.innerHTML = '<div class="info-box">Memvalidasi file...</div>';
+
+            try {
+                // Load JSZip if needed
+                await BackupImport.loadJSZip();
+
+                const preview = await BackupImport.previewImport(selectedImportFile, importerLevel);
+
+                if (preview.validation.valid) {
+                    previewDiv.innerHTML = `
+                        <div class="success-box">
+                            <strong>File Valid</strong><br>
+                            Level sumber: ${Hierarchy.getLevelName(preview.meta.level)}<br>
+                            Dibuat: ${new Date(preview.meta.created_at).toLocaleString('id-ID')}<br>
+                            Total record: ${preview.totalRecords}<br>
+                            Tables: ${Object.keys(preview.tableCounts).length}
+                        </div>
+                    `;
+                    importBtn.disabled = false;
+                } else {
+                    previewDiv.innerHTML = `
+                        <div class="error-box">
+                            <strong>Validasi Gagal</strong><br>
+                            ${preview.validation.errors.join('<br>')}
+                        </div>
+                    `;
+                    importBtn.disabled = true;
+                }
+
+                if (preview.validation.warnings.length > 0) {
+                    previewDiv.innerHTML += `
+                        <div class="warning-box">
+                            <strong>Peringatan:</strong><br>
+                            ${preview.validation.warnings.join('<br>')}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                previewDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+                importBtn.disabled = true;
+            }
+        };
+
+        window.doImport = async function() {
+            const resultDiv = document.getElementById('importResult');
+            const btn = document.getElementById('btnDoImport');
+            const importerLevel = document.getElementById('importLevel').value;
+
+            if (!selectedImportFile) {
+                resultDiv.innerHTML = '<div class="error-box">Pilih file terlebih dahulu</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="info-box">Mengimpor dan menggabungkan data...</div>';
+            btn.disabled = true;
+
+            try {
+                const result = await BackupImport.importBackup(selectedImportFile, {
+                    importerLevel: importerLevel,
+                    importedBy: 'current_user',
+                    importedByName: 'Current User',
+                    onProgress: (progress) => {
+                        resultDiv.innerHTML = `
+                            <div class="info-box">
+                                Memproses ${progress.table}...<br>
+                                ${progress.current}/${progress.total} record
+                            </div>
+                        `;
+                    }
+                });
+
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success-box">
+                            <strong>Import Berhasil!</strong><br>
+                            Ditambahkan: ${result.stats.inserted}<br>
+                            Diperbarui: ${result.stats.updated}<br>
+                            Dilewati: ${result.stats.skipped}<br>
+                            Konflik: ${result.stats.conflicts}
+                        </div>
+                    `;
+
+                    // Refresh stats
+                    await loadStats();
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error-box">
+                            <strong>Import Gagal</strong><br>
+                            ${result.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+
+            btn.disabled = false;
+        };
+
+        // Re-validate on level change
+        document.getElementById('importLevel').addEventListener('change', function() {
+            if (selectedImportFile) {
+                previewImportFile();
+            }
+        });
+
+        // =================================================================
+        // Rapor Functions
+        // =================================================================
+        async function loadJamaahForRapor() {
+            try {
+                const jamaahList = await JamaahService.getAll();
+                const select = document.getElementById('raporJamaah');
+                select.innerHTML = '<option value="">-- Pilih Jamaah --</option>';
+
+                jamaahList.forEach(j => {
+                    const option = document.createElement('option');
+                    option.value = j.id;
+                    option.textContent = j.nama_lengkap || j.nama_panggilan;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('[Rapor] Failed to load jamaah:', error);
+            }
+        }
+
+        // Load rapor list when jamaah selected
+        document.getElementById('raporJamaah')?.addEventListener('change', async function() {
+            const jamaahId = this.value;
+            const raporListDiv = document.getElementById('raporList');
+
+            if (!jamaahId) {
+                raporListDiv.innerHTML = `
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        Pilih jamaah untuk melihat riwayat rapor
+                    </p>
+                `;
+                return;
+            }
+
+            try {
+                const raporList = await RaporEngine.getRaporListByJamaah(jamaahId);
+
+                if (raporList.length === 0) {
+                    raporListDiv.innerHTML = `
+                        <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                            Belum ada rapor untuk jamaah ini
+                        </p>
+                    `;
+                    return;
+                }
+
+                raporListDiv.innerHTML = raporList.map(r => `
+                    <div class="rapor-list-item" onclick="viewRapor('${r.id}')">
+                        <div class="rapor-list-info">
+                            <div class="rapor-list-periode">${r.periode} - ${r.tahun_ajaran}</div>
+                            <div class="rapor-list-date">Semester ${r.semester} | ${new Date(r.created_at).toLocaleDateString('id-ID')}</div>
+                        </div>
+                        <span class="rapor-predikat ${getPredikatClass(r.predikat_keseluruhan)}">${r.predikat_keseluruhan || 'Draft'}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('[Rapor] Failed to load rapor list:', error);
+                raporListDiv.innerHTML = `
+                    <div class="error-box">Error: ${error.message}</div>
+                `;
+            }
+        });
+
+        window.generateRapor = async function() {
+            const jamaahId = document.getElementById('raporJamaah').value;
+            const periode = document.getElementById('raporPeriode').value;
+            const tahunAjaran = document.getElementById('raporTahunAjaran').value;
+            const semester = parseInt(document.getElementById('raporSemester').value);
+            const tanggalMulai = document.getElementById('raporTglMulai').value;
+            const tanggalSelesai = document.getElementById('raporTglSelesai').value;
+
+            if (!jamaahId || !periode || !tahunAjaran || !tanggalMulai || !tanggalSelesai) {
+                alert('Mohon lengkapi semua field yang diperlukan');
+                return;
+            }
+
+            const resultCard = document.getElementById('raporResultCard');
+            const resultDiv = document.getElementById('raporResult');
+
+            resultCard.style.display = 'block';
+            resultDiv.innerHTML = '<div class="info-box">Generating rapor...</div>';
+
+            try {
+                const rapor = await RaporEngine.generateRapor(jamaahId, {
+                    periode,
+                    tahunAjaran,
+                    semester,
+                    tanggalMulai,
+                    tanggalSelesai
+                }, DB.getDeviceId());
+
+                displayRapor(rapor, resultDiv);
+
+                // Refresh rapor list
+                document.getElementById('raporJamaah').dispatchEvent(new Event('change'));
+            } catch (error) {
+                console.error('[Rapor] Generation failed:', error);
+                resultDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        };
+
+        window.viewRapor = async function(raporId) {
+            const resultCard = document.getElementById('raporResultCard');
+            const resultDiv = document.getElementById('raporResult');
+
+            resultCard.style.display = 'block';
+            resultDiv.innerHTML = '<div class="info-box">Memuat rapor...</div>';
+
+            try {
+                const rapor = await RaporEngine.getRaporById(raporId);
+                displayRapor(rapor, resultDiv);
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        };
+
+        function displayRapor(rapor, container) {
+            const kehadiran = rapor.kehadiran || {};
+            const materi = rapor.materi || {};
+            const akhlaq = rapor.akhlaq || {};
+            const rekomendasi = rapor.rekomendasi || [];
+
+            container.innerHTML = `
+                <!-- Header -->
+                <div class="rapor-section">
+                    <h3 style="text-align: center; margin-bottom: 8px;">${rapor.nama_jamaah || rapor.namaJamaah}</h3>
+                    <p style="text-align: center; color: var(--text-muted);">
+                        Periode ${rapor.periode} | Semester ${rapor.semester} | ${rapor.tahun_ajaran}
+                    </p>
+                    <div style="text-align: center; margin-top: 12px;">
+                        <span class="rapor-predikat ${getPredikatClass(rapor.predikat_keseluruhan || rapor.predikatKeseluruhan)}">
+                            ${rapor.predikat_keseluruhan || rapor.predikatKeseluruhan}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Kehadiran -->
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Kehadiran</div>
+                    <div class="rapor-stat-grid">
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Hadir</div>
+                            <div class="rapor-stat-value">${kehadiran.totalHadir || rapor.total_hadir || 0}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Total Pertemuan</div>
+                            <div class="rapor-stat-value">${kehadiran.totalPertemuan || rapor.total_pertemuan || 0}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Persentase</div>
+                            <div class="rapor-stat-value">${(kehadiran.persentase || rapor.persentase_hadir || 0).toFixed(1)}%</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Predikat</div>
+                            <div class="rapor-stat-value">${kehadiran.predikat || rapor.predikat_kehadiran || '-'}</div>
+                        </div>
+                    </div>
+                    <div class="rapor-narrative">${kehadiran.deskripsi || rapor.deskripsi_kehadiran || ''}</div>
+                </div>
+
+                <!-- Akademik -->
+                ${materi.detailMateri ? `
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Akademik</div>
+                    <div class="rapor-stat-grid">
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Rata-rata Nilai</div>
+                            <div class="rapor-stat-value">${materi.rataRataNilai?.toFixed(1) || '-'}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Predikat</div>
+                            <div class="rapor-stat-value">${materi.predikatKeseluruhan || '-'}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Lulus</div>
+                            <div class="rapor-stat-value">${materi.materiLulus || 0}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Tertinggal</div>
+                            <div class="rapor-stat-value">${materi.materiTertinggal || 0}</div>
+                        </div>
+                    </div>
+                    ${materi.detailMateri.length > 0 ? `
+                    <table class="materi-table">
+                        <thead>
+                            <tr>
+                                <th>Materi</th>
+                                <th>Nilai</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${materi.detailMateri.map(m => `
+                            <tr>
+                                <td>${m.namaMateri}</td>
+                                <td>${m.nilaiAkhir?.toFixed(1) || '-'} (${m.predikat || '-'})</td>
+                                <td><span class="status-badge ${getStatusClass(m.status)}">${m.status}</span></td>
+                            </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ` : '<p style="color: var(--text-muted);">Tidak ada data materi</p>'}
+                </div>
+                ` : ''}
+
+                <!-- Akhlaq -->
+                ${akhlaq.dimensi || akhlaq.predikat_keseluruhan ? `
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Akhlaq</div>
+                    <div class="rapor-stat-grid">
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Rata-rata</div>
+                            <div class="rapor-stat-value">${akhlaq.nilaiRataRata?.toFixed(2) || akhlaq.nilai_rata_rata?.toFixed(2) || '-'}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Predikat</div>
+                            <div class="rapor-stat-value">${akhlaq.predikatKeseluruhan || akhlaq.predikat_keseluruhan || '-'}</div>
+                        </div>
+                    </div>
+                    <div class="rapor-narrative">${akhlaq.deskripsiKeseluruhan || akhlaq.deskripsi_keseluruhan || ''}</div>
+                    ${akhlaq.kekuatanKarakter?.length > 0 || akhlaq.kekuatan_karakter ? `
+                    <p style="margin-top: 8px;"><strong>Kekuatan:</strong> ${Array.isArray(akhlaq.kekuatanKarakter) ? akhlaq.kekuatanKarakter.join(', ') : akhlaq.kekuatan_karakter || '-'}</p>
+                    ` : ''}
+                    ${akhlaq.areaPengembangan?.length > 0 || akhlaq.area_pengembangan ? `
+                    <p><strong>Area Pengembangan:</strong> ${Array.isArray(akhlaq.areaPengembangan) ? akhlaq.areaPengembangan.join(', ') : akhlaq.area_pengembangan || '-'}</p>
+                    ` : ''}
+                </div>
+                ` : ''}
+
+                <!-- Rekomendasi -->
+                ${rekomendasi.length > 0 ? `
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Rekomendasi</div>
+                    ${rekomendasi.slice(0, 5).map(r => `
+                    <div class="rapor-rekomendasi-item">
+                        <div class="rapor-rekomendasi-title">
+                            ${r.judul}
+                            <span class="rapor-priority-badge priority-${r.prioritas}">${r.prioritas}</span>
+                        </div>
+                        <div class="rapor-rekomendasi-text">${r.rekomendasi_text}</div>
+                    </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                <!-- Deskripsi Keseluruhan -->
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Kesimpulan</div>
+                    <div class="rapor-narrative">${rapor.deskripsi_keseluruhan || rapor.deskripsiKeseluruhan || ''}</div>
+                </div>
+            `;
+        }
+
+        function getPredikatClass(predikat) {
+            if (!predikat) return '';
+            const p = predikat.toLowerCase().replace(/\s+/g, '-');
+            if (p.includes('istimewa')) return 'predikat-istimewa';
+            if (p.includes('sangat')) return 'predikat-sangat-baik';
+            if (p.includes('baik')) return 'predikat-baik';
+            if (p.includes('cukup')) return 'predikat-cukup';
+            return 'predikat-perlu-pembinaan';
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'lulus': return 'status-success';
+                case 'proses': return 'status-warning';
+                case 'tertinggal': return 'status-danger';
+                default: return 'status-info';
+            }
+        }
+
+        // Load jamaah when rapor page is shown
+        const origNavigateTo = window.navigateTo;
+        window.navigateTo = function(page) {
+            origNavigateTo(page);
+            if (page === 'rapor') {
+                loadJamaahForRapor();
+            }
+        };
+
+        // =================================================================
+        // Start App
+        // =================================================================
+        initApp();
+    </script>
+</body>
+</html>

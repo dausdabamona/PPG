@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PPG Theme Colors -->
+    <color name="colorPrimary">#1a5f2a</color>
+    <color name="colorPrimaryDark">#0d3d18</color>
+    <color name="colorAccent">#ffc107</color>
+
+    <!-- Splash Screen -->
+    <color name="splash_background">#1a5f2a</color>
+
+    <!-- Additional Colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

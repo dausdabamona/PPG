@@ -18,6 +18,7 @@
 import DB from '../db/db.js';
 import { validateImportPermission, getLevelName, isValidLevel } from './hierarchy.js';
 import { calculateChecksum, EXPORT_TABLES, APP_VERSION } from './export.js';
+import FileService from '../services/fileService.js';
 
 /**
  * Tables that should be merged (order matters for foreign keys)
@@ -45,80 +46,122 @@ const MERGE_TABLES = [
 
 /**
  * Parse .ppg backup file
- * @param {File} file - Backup file
+ * @param {File|Uint8Array} fileOrData - Backup file or raw data (from Android)
+ * @param {string} fileName - File name (required when passing Uint8Array)
  * @returns {Promise<object>} Parsed backup contents
  */
-async function parseBackupFile(file) {
-    console.log('[Import] Parsing backup file:', file.name);
+async function parseBackupFile(fileOrData, fileName = null) {
+    const isRawData = fileOrData instanceof Uint8Array;
+    const name = isRawData ? fileName : fileOrData.name;
+    console.log('[Import] Parsing backup file:', name);
 
+    // Handle raw Uint8Array data (from Android FileService)
+    if (isRawData) {
+        return parseBackupData(fileOrData, name);
+    }
+
+    // Handle File object (web)
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
 
         reader.onload = async (event) => {
             try {
                 const content = event.target.result;
-
-                // Try to parse as zip first (if JSZip available)
-                if (typeof JSZip !== 'undefined') {
-                    try {
-                        const zip = await JSZip.loadAsync(content);
-
-                        const dataFile = zip.file('data.json');
-                        const metaFile = zip.file('meta.json');
-                        const hashFile = zip.file('hash.txt');
-
-                        if (!dataFile || !metaFile) {
-                            throw new Error('Invalid backup: missing required files');
-                        }
-
-                        const data = JSON.parse(await dataFile.async('string'));
-                        const meta = JSON.parse(await metaFile.async('string'));
-                        const hash = hashFile ? (await hashFile.async('string')).trim() : null;
-
-                        resolve({ data, meta, hash, format: 'zip' });
-                        return;
-                    } catch (zipError) {
-                        console.log('[Import] Not a zip file, trying JSON format...');
-                    }
-                }
-
-                // Try as combined JSON format (fallback)
-                const jsonContent = typeof content === 'string' ?
-                    content : new TextDecoder().decode(content);
-                const parsed = JSON.parse(jsonContent);
-
-                if (parsed._format === 'ppg_combined') {
-                    resolve({
-                        data: parsed.data,
-                        meta: parsed.meta,
-                        hash: parsed.hash,
-                        format: 'json'
-                    });
-                } else if (parsed.data && parsed.metadata) {
-                    // Legacy format support
-                    resolve({
-                        data: parsed.data,
-                        meta: parsed.metadata,
-                        hash: null,
-                        format: 'legacy'
-                    });
-                } else {
-                    reject(new Error('Unknown backup format'));
-                }
+                const result = await parseBackupData(
+                    new Uint8Array(content),
+                    fileOrData.name
+                );
+                resolve(result);
             } catch (error) {
                 reject(new Error('Failed to parse backup: ' + error.message));
             }
         };
 
         reader.onerror = () => reject(new Error('Failed to read file'));
-
-        // Read as ArrayBuffer for zip, or text for JSON
-        if (file.name.endsWith('.ppg')) {
-            reader.readAsArrayBuffer(file);
-        } else {
-            reader.readAsText(file);
-        }
+        reader.readAsArrayBuffer(fileOrData);
     });
+}
+
+/**
+ * Parse backup data from Uint8Array
+ * @param {Uint8Array} data - Raw backup data
+ * @param {string} fileName - File name
+ * @returns {Promise<object>} Parsed backup contents
+ */
+async function parseBackupData(data, fileName) {
+    // Try to parse as zip first (if JSZip available)
+    if (typeof JSZip !== 'undefined') {
+        try {
+            const zip = await JSZip.loadAsync(data);
+
+            const dataFile = zip.file('data.json');
+            const metaFile = zip.file('meta.json');
+            const hashFile = zip.file('hash.txt');
+
+            if (!dataFile || !metaFile) {
+                throw new Error('Invalid backup: missing required files');
+            }
+
+            const parsedData = JSON.parse(await dataFile.async('string'));
+            const meta = JSON.parse(await metaFile.async('string'));
+            const hash = hashFile ? (await hashFile.async('string')).trim() : null;
+
+            return { data: parsedData, meta, hash, format: 'zip' };
+        } catch (zipError) {
+            console.log('[Import] Not a zip file, trying JSON format...');
+        }
+    }
+
+    // Try as combined JSON format (fallback)
+    const jsonContent = new TextDecoder().decode(data);
+    const parsed = JSON.parse(jsonContent);
+
+    if (parsed._format === 'ppg_combined') {
+        return {
+            data: parsed.data,
+            meta: parsed.meta,
+            hash: parsed.hash,
+            format: 'json'
+        };
+    } else if (parsed.data && parsed.metadata) {
+        // Legacy format support
+        return {
+            data: parsed.data,
+            meta: parsed.metadata,
+            hash: null,
+            format: 'legacy'
+        };
+    } else {
+        throw new Error('Unknown backup format');
+    }
+}
+
+/**
+ * Pick a backup file using platform-appropriate method
+ * On web: Opens file input dialog
+ * On Android: Lists available .ppg files from Documents and Downloads
+ * @returns {Promise<object>} Pick result with file info
+ */
+async function pickFile() {
+    return FileService.pickBackupFile();
+}
+
+/**
+ * List available backup files (Android only)
+ * @returns {Promise<Array>} List of backup files
+ */
+async function listAvailableBackups() {
+    return FileService.listBackupFiles();
+}
+
+/**
+ * Read a specific backup file by path (Android)
+ * @param {string} path - File path
+ * @param {string} directory - Directory constant
+ * @returns {Promise<object>} File data
+ */
+async function readBackupFromPath(path, directory) {
+    return FileService.readBackupFile(path, directory);
 }
 
 /**
@@ -635,10 +678,15 @@ const ImportModule = {
     importBackup,
     previewImport,
     parseBackupFile,
+    parseBackupData,
     validateBackup,
     getConflicts,
     getImportHistory,
     loadJSZip,
+    // FileService integration
+    pickFile,
+    listAvailableBackups,
+    readBackupFromPath,
     MERGE_TABLES
 };
 
@@ -655,8 +703,12 @@ export {
     importBackup,
     previewImport,
     parseBackupFile,
+    parseBackupData,
     validateBackup,
     getConflicts,
     getImportHistory,
-    loadJSZip
+    loadJSZip,
+    pickFile,
+    listAvailableBackups,
+    readBackupFromPath
 };

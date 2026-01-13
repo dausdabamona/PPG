@@ -218,6 +218,58 @@ async function executeQuery(sql, params = []) {
 }
 
 /**
+ * Execute SQL and return results in SQL.js format
+ * Compatible with both platforms
+ * @param {string} sql - SQL query
+ * @param {Array} params - Query parameters
+ * @returns {Array} Results in SQL.js exec() format [{ columns: [], values: [] }]
+ */
+function exec(sql, params = []) {
+    if (!db) {
+        throw new Error('Database not initialized. Call initDatabase() first.');
+    }
+
+    try {
+        if (isCapacitor) {
+            // For Capacitor, we need to handle this synchronously via a cached query
+            // This is a limitation - use query() for async operations
+            console.warn('[DB] exec() called in Capacitor - use query() for async');
+            return [];
+        } else {
+            // SQL.js exec format
+            const results = db.exec(sql, params);
+            return results;
+        }
+    } catch (error) {
+        console.error('[DB] Exec error:', error);
+        return [];
+    }
+}
+
+/**
+ * Run SQL statement (alias for SQL.js compatibility)
+ * @param {string} sql - SQL statement
+ * @param {Array} params - Statement parameters
+ */
+function run(sql, params = []) {
+    if (!db) {
+        throw new Error('Database not initialized. Call initDatabase() first.');
+    }
+
+    try {
+        if (isCapacitor) {
+            // Queue for async execution
+            db.run(sql, params);
+        } else {
+            db.run(sql, params);
+        }
+    } catch (error) {
+        console.error('[DB] Run error:', error);
+        throw error;
+    }
+}
+
+/**
  * Execute SQL statement (INSERT, UPDATE, DELETE)
  * @param {string} sql - SQL statement
  * @param {Array} params - Statement parameters
@@ -374,6 +426,8 @@ const DB = {
     query: executeQuery,
     execute: executeStatement,
     executeMultiple,
+    exec,
+    run,
     save: saveDatabase,
     close: closeDatabase,
     generateUUID,
@@ -381,10 +435,12 @@ const DB = {
     getCurrentTimestamp,
     isInitialized,
     getDatabase,
+    getDB: getDatabase,  // Alias for compatibility
     beginTransaction,
     commitTransaction,
     rollbackTransaction,
-    config: DB_CONFIG
+    config: DB_CONFIG,
+    isCapacitor: () => isCapacitor
 };
 
 // ES Module export
@@ -403,6 +459,8 @@ export {
     executeQuery,
     executeStatement,
     executeMultiple,
+    exec,
+    run,
     saveDatabase,
     closeDatabase,
     generateUUID,
