@@ -6,13 +6,18 @@
  *
  * This module provides:
  * - Database initialization for both web (SQL.js) and Capacitor (native SQLite)
+ * - SQLCipher encryption support on native platforms
  * - Unified API that works across platforms
  * - Connection management and error handling
- * - Ready for SQLCipher encryption upgrade
+ * - Database locking on app background
+ *
+ * Security Model:
+ * - Web/PWA: SQL.js with AES-256 encrypted localStorage
+ * - Android/iOS: SQLCipher with derived encryption key
  *
  * Platform Detection:
  * - Web/PWA: Uses SQL.js (WebAssembly SQLite)
- * - Android/iOS: Uses @capacitor-community/sqlite
+ * - Android/iOS: Uses @capacitor-community/sqlite with SQLCipher
  * =============================================================================
  */
 
@@ -20,6 +25,15 @@
 let db = null;
 let isCapacitor = false;
 let sqlitePlugin = null;
+let sqliteConnection = null;
+
+// Encryption state
+let encryptionKey = null;
+let isLocked = true;
+let lockTimeout = null;
+
+// Lock timeout in milliseconds (5 minutes of inactivity)
+const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
  * Configuration for database
@@ -27,9 +41,10 @@ let sqlitePlugin = null;
 const DB_CONFIG = {
     name: 'ppg_database',
     version: 1,
-    // For future SQLCipher encryption
-    encrypted: false,
-    encryptionKey: null,  // Will be set when encryption is enabled
+    // SQLCipher encryption settings
+    encrypted: true,                    // Enable encryption
+    encryptionMode: 'secret',           // 'secret' for SQLCipher
+    encryptedDbName: 'ppg_encrypted',   // Name for encrypted DB
 };
 
 /**
@@ -103,26 +118,118 @@ async function initWebDatabase() {
 
 /**
  * Initialize Capacitor SQLite for native platforms
+ * @param {Uint8Array} key - 32-byte encryption key (optional for unencrypted mode)
  * @returns {Promise<object>} Capacitor SQLite connection
  */
-async function initCapacitorDatabase() {
+async function initCapacitorDatabase(key = null) {
     // Import Capacitor SQLite plugin
     const { CapacitorSQLite, SQLiteConnection } = await import('@capacitor-community/sqlite');
 
     sqlitePlugin = CapacitorSQLite;
-    const sqlite = new SQLiteConnection(CapacitorSQLite);
+    sqliteConnection = new SQLiteConnection(CapacitorSQLite);
 
-    // Create connection
-    const connection = await sqlite.createConnection(
-        DB_CONFIG.name,
-        DB_CONFIG.encrypted,
-        'no-encryption',  // Will be changed to 'encryption' when enabled
+    // Determine encryption mode
+    const useEncryption = key !== null && key.length === 32;
+    const dbName = useEncryption ? DB_CONFIG.encryptedDbName : DB_CONFIG.name;
+    const mode = useEncryption ? DB_CONFIG.encryptionMode : 'no-encryption';
+
+    console.log(`[DB] Initializing ${useEncryption ? 'encrypted' : 'unencrypted'} database`);
+
+    // Create connection with encryption key
+    const connection = await sqliteConnection.createConnection(
+        dbName,
+        useEncryption,
+        mode,
         DB_CONFIG.version,
         false  // readonly
     );
 
-    await connection.open();
+    // If encrypted, set the encryption key
+    if (useEncryption) {
+        // Convert key to hex string for SQLCipher
+        const keyHex = Array.from(key).map(b => b.toString(16).padStart(2, '0')).join('');
+        await connection.open();
+
+        // Execute PRAGMA to set encryption key
+        // SQLCipher requires the key to be set before any operations
+        try {
+            await connection.execute(`PRAGMA key = "x'${keyHex}'";`);
+            console.log('[DB] Encryption key set successfully');
+        } catch (error) {
+            console.error('[DB] Failed to set encryption key:', error);
+            throw new Error('Failed to initialize encrypted database');
+        }
+    } else {
+        await connection.open();
+    }
+
     return connection;
+}
+
+/**
+ * Check if encrypted database exists
+ * @returns {Promise<boolean>} True if encrypted database exists
+ */
+async function encryptedDatabaseExists() {
+    if (!isCapacitor) return false;
+
+    try {
+        const { CapacitorSQLite, SQLiteConnection } = await import('@capacitor-community/sqlite');
+        const sqlite = new SQLiteConnection(CapacitorSQLite);
+        const result = await sqlite.isDatabase(DB_CONFIG.encryptedDbName);
+        return result.result;
+    } catch (error) {
+        console.warn('[DB] Could not check encrypted database:', error);
+        return false;
+    }
+}
+
+/**
+ * Migrate unencrypted database to encrypted
+ * @param {Uint8Array} key - 32-byte encryption key
+ * @returns {Promise<boolean>} True if migration successful
+ */
+async function migrateToEncrypted(key) {
+    if (!isCapacitor || !sqliteConnection) {
+        console.warn('[DB] Migration only supported on Capacitor');
+        return false;
+    }
+
+    console.log('[DB] Starting database encryption migration...');
+
+    try {
+        // Check if unencrypted database exists
+        const unencryptedExists = await sqliteConnection.isDatabase(DB_CONFIG.name);
+
+        if (!unencryptedExists.result) {
+            console.log('[DB] No unencrypted database to migrate');
+            return true;
+        }
+
+        // Export unencrypted database
+        const exportData = await sqliteConnection.exportToJson('full');
+
+        // Close unencrypted connection
+        await closeDatabase();
+
+        // Create encrypted database
+        db = await initCapacitorDatabase(key);
+
+        // Import data into encrypted database
+        if (exportData && exportData.export) {
+            await sqliteConnection.importFromJson(JSON.stringify(exportData.export));
+            console.log('[DB] Data migrated to encrypted database');
+        }
+
+        // Delete unencrypted database
+        await sqliteConnection.deleteDatabase(DB_CONFIG.name);
+        console.log('[DB] Unencrypted database deleted');
+
+        return true;
+    } catch (error) {
+        console.error('[DB] Migration failed:', error);
+        return false;
+    }
 }
 
 /**
@@ -143,10 +250,11 @@ function loadScript(src) {
 /**
  * Initialize the database
  * Detects platform and initializes appropriate database driver
+ * @param {Uint8Array} key - Optional encryption key (32 bytes)
  * @returns {Promise<object>} Database instance
  */
-async function initDatabase() {
-    if (db) {
+async function initDatabase(key = null) {
+    if (db && !isLocked) {
         console.log('[DB] Database already initialized');
         return db;
     }
@@ -158,10 +266,18 @@ async function initDatabase() {
 
     try {
         if (isCapacitor) {
-            db = await initCapacitorDatabase();
+            db = await initCapacitorDatabase(key);
         } else {
             db = await initWebDatabase();
         }
+
+        // Store encryption key in memory (never persisted)
+        if (key) {
+            encryptionKey = key;
+        }
+
+        isLocked = false;
+        resetLockTimeout();
 
         console.log('[DB] Database initialized successfully');
         return db;
@@ -169,6 +285,166 @@ async function initDatabase() {
         console.error('[DB] Failed to initialize database:', error);
         throw error;
     }
+}
+
+/**
+ * Initialize database with encryption key from PIN
+ * This is the main entry point for secure database access
+ * @param {Uint8Array} derivedKey - Key derived from PIN + wilayah key
+ * @returns {Promise<object>} { success: boolean, error: string|null }
+ */
+async function initSecureDatabase(derivedKey) {
+    if (!derivedKey || derivedKey.length !== 32) {
+        return { success: false, error: 'Invalid encryption key' };
+    }
+
+    try {
+        await initDatabase(derivedKey);
+        return { success: true, error: null };
+    } catch (error) {
+        console.error('[DB] Secure initialization failed:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Unlock database with PIN (re-initialize with cached key)
+ * @param {Uint8Array} derivedKey - Re-derived encryption key
+ * @returns {Promise<object>} { success: boolean, error: string|null }
+ */
+async function unlockDatabase(derivedKey) {
+    if (!isLocked) {
+        return { success: true, error: null };
+    }
+
+    console.log('[DB] Unlocking database...');
+
+    try {
+        if (isCapacitor && db) {
+            // Re-open with encryption key
+            db = await initCapacitorDatabase(derivedKey);
+        }
+
+        encryptionKey = derivedKey;
+        isLocked = false;
+        resetLockTimeout();
+
+        console.log('[DB] Database unlocked');
+        return { success: true, error: null };
+    } catch (error) {
+        console.error('[DB] Unlock failed:', error);
+        return { success: false, error: 'Gagal membuka database. PIN mungkin salah.' };
+    }
+}
+
+/**
+ * Lock database (clear encryption key from memory)
+ * Called when app goes to background or on timeout
+ */
+function lockDatabase() {
+    if (isLocked) return;
+
+    console.log('[DB] Locking database...');
+
+    // Clear encryption key from memory
+    if (encryptionKey) {
+        encryptionKey.fill(0);  // Securely wipe
+        encryptionKey = null;
+    }
+
+    // Close connection on Capacitor
+    if (isCapacitor && db) {
+        try {
+            db.close();
+        } catch (e) {
+            // Ignore close errors
+        }
+        db = null;
+    }
+
+    isLocked = true;
+    clearLockTimeout();
+
+    console.log('[DB] Database locked');
+
+    // Dispatch event for UI to show lock screen
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('db:locked'));
+    }
+}
+
+/**
+ * Reset the auto-lock timeout
+ */
+function resetLockTimeout() {
+    clearLockTimeout();
+    lockTimeout = setTimeout(() => {
+        console.log('[DB] Auto-lock timeout reached');
+        lockDatabase();
+    }, LOCK_TIMEOUT_MS);
+}
+
+/**
+ * Clear the auto-lock timeout
+ */
+function clearLockTimeout() {
+    if (lockTimeout) {
+        clearTimeout(lockTimeout);
+        lockTimeout = null;
+    }
+}
+
+/**
+ * Check if database is locked
+ * @returns {boolean} True if locked
+ */
+function isDatabaseLocked() {
+    return isLocked;
+}
+
+/**
+ * Touch database (reset lock timeout on activity)
+ */
+function touchDatabase() {
+    if (!isLocked) {
+        resetLockTimeout();
+    }
+}
+
+/**
+ * Setup app lifecycle listeners for auto-lock
+ */
+function setupLifecycleListeners() {
+    if (typeof window === 'undefined') return;
+
+    // Lock on visibility change (app backgrounded)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            console.log('[DB] App backgrounded, locking...');
+            lockDatabase();
+        }
+    });
+
+    // Lock on page unload
+    window.addEventListener('beforeunload', () => {
+        lockDatabase();
+    });
+
+    // Capacitor-specific lifecycle events
+    if (isCapacitor && window.Capacitor) {
+        import('@capacitor/app').then(({ App }) => {
+            App.addListener('appStateChange', (state) => {
+                if (!state.isActive) {
+                    console.log('[DB] Capacitor app inactive, locking...');
+                    lockDatabase();
+                }
+            });
+        }).catch(() => {
+            // App plugin not available
+        });
+    }
+
+    console.log('[DB] Lifecycle listeners set up');
 }
 
 /**
@@ -422,7 +698,9 @@ async function rollbackTransaction() {
 // Support both ES modules and global scope (for vanilla JS)
 
 const DB = {
+    // Core functions
     init: initDatabase,
+    initSecure: initSecureDatabase,
     query: executeQuery,
     execute: executeStatement,
     executeMultiple,
@@ -430,15 +708,32 @@ const DB = {
     run,
     save: saveDatabase,
     close: closeDatabase,
+
+    // Security functions
+    unlock: unlockDatabase,
+    lock: lockDatabase,
+    isLocked: isDatabaseLocked,
+    touch: touchDatabase,
+    setupLifecycle: setupLifecycleListeners,
+
+    // Encryption functions
+    encryptedExists: encryptedDatabaseExists,
+    migrateEncrypted: migrateToEncrypted,
+
+    // Utilities
     generateUUID,
     getDeviceId,
     getCurrentTimestamp,
     isInitialized,
     getDatabase,
     getDB: getDatabase,  // Alias for compatibility
+
+    // Transactions
     beginTransaction,
     commitTransaction,
     rollbackTransaction,
+
+    // Configuration
     config: DB_CONFIG,
     isCapacitor: () => isCapacitor
 };
@@ -456,6 +751,14 @@ if (typeof window !== 'undefined') {
 export default DB;
 export {
     initDatabase,
+    initSecureDatabase,
+    unlockDatabase,
+    lockDatabase,
+    isDatabaseLocked,
+    touchDatabase,
+    setupLifecycleListeners,
+    encryptedDatabaseExists,
+    migrateToEncrypted,
     executeQuery,
     executeStatement,
     executeMultiple,

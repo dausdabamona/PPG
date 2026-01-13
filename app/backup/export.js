@@ -3,9 +3,15 @@
  * Backup Export Module
  * =============================================================================
  * Exports the SQLite database into a .ppg backup file (zip format) containing:
- * - data.json: The database content
- * - meta.json: Backup metadata (level, wilayah, creator, timestamp, version)
+ * - data.json: The database content (or data.enc if encrypted)
+ * - meta.json: Backup metadata (level, wilayah, creator, timestamp, version, security)
  * - hash.txt: SHA-256 checksum for integrity verification
+ * - signature.sig: Digital signature for authenticity (if signed)
+ *
+ * Security Features:
+ * - AES-256-GCM encryption with derived key
+ * - ECDSA P-256 digital signatures
+ * - Hierarchical trust chain enforcement
  *
  * Supports hierarchical backup flow:
  * OrangTua -> Mubaligh -> PC -> DPD -> DPW
@@ -15,11 +21,19 @@
 import DB from '../db/db.js';
 import { LEVELS, getLevelName, isValidLevel, getTargetLevel } from './hierarchy.js';
 import FileService from '../services/fileService.js';
+import { encryptBackupData } from '../security/cryptoUtils.js';
+import { signBackup, hasSigningKey, HIERARCHY_LEVELS } from '../security/signatureManager.js';
+import { getSecurityStatus, bytesToHex, bytesToBase64 } from '../security/keyManager.js';
 
 /**
  * Application version for backup compatibility
  */
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '2.0.0';  // Updated for security features
+
+/**
+ * Security version for encrypted backups
+ */
+const SECURITY_VERSION = 1;
 
 /**
  * Tables to include in backup (in dependency order)
@@ -149,17 +163,31 @@ function createMetadata(options) {
  * @param {object} dataJson - Database data
  * @param {object} metaJson - Metadata
  * @param {string} checksum - Data checksum
+ * @param {object} securityOptions - Optional security options
  * @returns {Promise<Blob>} Zip file as Blob
  */
-async function createZipFile(dataJson, metaJson, checksum) {
+async function createZipFile(dataJson, metaJson, checksum, securityOptions = null) {
     // Check if JSZip is available
     if (typeof JSZip !== 'undefined') {
         const zip = new JSZip();
 
         // Add files to zip
-        zip.file('data.json', JSON.stringify(dataJson, null, 2));
+        if (securityOptions && securityOptions.encryptedData) {
+            // Encrypted backup
+            zip.file('data.enc', securityOptions.encryptedData);
+            zip.file('encryption.json', JSON.stringify(securityOptions.encryptionHeader, null, 2));
+        } else {
+            // Unencrypted backup
+            zip.file('data.json', JSON.stringify(dataJson, null, 2));
+        }
+
         zip.file('meta.json', JSON.stringify(metaJson, null, 2));
         zip.file('hash.txt', checksum);
+
+        // Add signature if present
+        if (securityOptions && securityOptions.signature) {
+            zip.file('signature.sig', JSON.stringify(securityOptions.signature, null, 2));
+        }
 
         // Generate zip
         return await zip.generateAsync({
@@ -174,16 +202,145 @@ async function createZipFile(dataJson, metaJson, checksum) {
 
     const combined = {
         _format: 'ppg_combined',
-        _version: 1,
-        data: dataJson,
+        _version: securityOptions ? 2 : 1,
+        data: securityOptions?.encryptedData ? null : dataJson,
+        encryptedData: securityOptions?.encryptedData ? bytesToBase64(securityOptions.encryptedData) : null,
+        encryptionHeader: securityOptions?.encryptionHeader || null,
         meta: metaJson,
-        hash: checksum
+        hash: checksum,
+        signature: securityOptions?.signature || null
     };
 
     return new Blob(
         [JSON.stringify(combined, null, 2)],
         { type: 'application/json' }
     );
+}
+
+/**
+ * Create secure (encrypted and signed) backup
+ * @param {object} options - Export options
+ * @param {Uint8Array} options.encryptionKey - 32-byte encryption key
+ * @param {boolean} options.sign - Whether to sign the backup
+ * @param {string} options.entityId - Entity ID for signing
+ * @returns {Promise<object>} Export result
+ */
+async function createSecureBackup(options) {
+    console.log('[Export] Starting secure backup export...');
+
+    // Validate required security options
+    if (!options.encryptionKey || options.encryptionKey.length !== 32) {
+        return { success: false, error: 'Kunci enkripsi tidak valid' };
+    }
+
+    if (!isValidLevel(options.level)) {
+        return { success: false, error: `Level tidak valid: ${options.level}` };
+    }
+
+    const result = {
+        success: false,
+        fileName: null,
+        checksum: null,
+        metadata: null,
+        encrypted: true,
+        signed: false,
+        error: null
+    };
+
+    try {
+        // Create metadata with security info
+        const metadata = createMetadata(options);
+        metadata.security = {
+            version: SECURITY_VERSION,
+            encrypted: true,
+            algorithm: 'AES-256-GCM',
+            signed: options.sign && hasSigningKey(options.level, options.entityId),
+            key_version: 1,
+            wilayah_id: options.wilayah_id,
+            security_level: getSecurityStatus(options.created_by, options.wilayah_id).securityLevel
+        };
+
+        // Export data
+        console.log('[Export] Exporting database...');
+        const { data, totalRecords } = await exportAllData();
+
+        // Update metadata with statistics
+        metadata.table_count = Object.keys(data).filter(k => data[k].length > 0).length;
+        metadata.total_records = totalRecords;
+
+        // Serialize data for encryption
+        const dataBytes = new TextEncoder().encode(JSON.stringify(data));
+
+        // Encrypt data
+        console.log('[Export] Encrypting backup data...');
+        const encryptResult = await encryptBackupData(
+            dataBytes,
+            options.encryptionKey,
+            { level: options.level, wilayah_id: options.wilayah_id }
+        );
+
+        // Calculate checksum of encrypted data
+        const checksum = encryptResult.header.checksum;
+        console.log('[Export] Checksum:', checksum);
+
+        // Create security options for zip
+        const securityOptions = {
+            encryptedData: encryptResult.encryptedData,
+            encryptionHeader: encryptResult.header,
+            signature: null
+        };
+
+        // Sign if requested and key available
+        if (options.sign && hasSigningKey(options.level, options.entityId)) {
+            console.log('[Export] Signing backup...');
+            try {
+                securityOptions.signature = await signBackup(
+                    encryptResult.encryptedData,
+                    metadata,
+                    options.level,
+                    options.entityId
+                );
+                metadata.security.signed = true;
+                result.signed = true;
+                console.log('[Export] Backup signed successfully');
+            } catch (signError) {
+                console.warn('[Export] Failed to sign backup:', signError.message);
+                // Continue without signature
+            }
+        }
+
+        // Generate filename (encrypted)
+        const fileName = generateFilename(metadata).replace('.ppg', '_encrypted.ppg');
+
+        // Create zip file
+        console.log('[Export] Creating encrypted backup file...');
+        const zipBlob = await createZipFile(null, metadata, checksum, securityOptions);
+
+        // Log operation
+        await logBackupOperation(metadata, fileName, checksum);
+
+        // Save file
+        const saveResult = await FileService.saveBackupFile(zipBlob, fileName);
+
+        if (!saveResult.success) {
+            throw new Error(saveResult.error || 'Failed to save backup file');
+        }
+
+        result.success = true;
+        result.fileName = fileName;
+        result.checksum = checksum;
+        result.metadata = metadata;
+        result.path = saveResult.path;
+        result.message = saveResult.message;
+
+        console.log('[Export] Secure backup complete:', fileName);
+
+    } catch (error) {
+        console.error('[Export] Secure backup failed:', error);
+        result.error = error.message;
+    }
+
+    return result;
 }
 
 /**
@@ -367,6 +524,7 @@ async function loadJSZip() {
 // =============================================================================
 
 const ExportModule = {
+    // Standard backup
     createBackup,
     previewBackup,
     exportAllData,
@@ -375,7 +533,13 @@ const ExportModule = {
     generateFilename,
     loadJSZip,
     formatFileSize,
+
+    // Secure backup
+    createSecureBackup,
+
+    // Constants
     APP_VERSION,
+    SECURITY_VERSION,
     EXPORT_TABLES
 };
 
@@ -390,9 +554,11 @@ if (typeof window !== 'undefined') {
 export default ExportModule;
 export {
     createBackup,
+    createSecureBackup,
     previewBackup,
     exportAllData,
     calculateChecksum,
     loadJSZip,
-    APP_VERSION
+    APP_VERSION,
+    SECURITY_VERSION
 };

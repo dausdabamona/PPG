@@ -13,6 +13,7 @@ A Progressive Web App (PWA) designed for managing students (jamaah), classes (ke
 - [Folder Structure](#folder-structure)
 - [Database Schema](#database-schema)
 - [User Roles](#user-roles)
+- [Security Architecture](#security-architecture)
 - [Hierarchical Backup System](#hierarchical-backup-system)
 - [Academic Report Engine (Rapor)](#academic-report-engine-rapor)
 - [Getting Started](#getting-started)
@@ -42,7 +43,8 @@ PPG is built with an **offline-first architecture**, meaning:
 | **Database** | SQLite | Via SQL.js (web) or Capacitor SQLite (native) |
 | **Storage** | localStorage / IndexedDB | For web platform persistence |
 | **Native Wrapper** | Capacitor | For Android/iOS APK generation |
-| **Encryption** | SQLCipher (planned) | Database encryption for security |
+| **Encryption** | SQLCipher | AES-256 database encryption (active) |
+| **Crypto** | Web Crypto API | AES-256-GCM, ECDSA P-256, PBKDF2 |
 
 ### Why Offline-First?
 
@@ -95,10 +97,15 @@ PPG is built with an **offline-first architecture**, meaning:
 │   │   ├── db.js           # SQLite initialization (web + native)
 │   │   └── migrate.js      # Schema migrations
 │   ├── /backup             # Hierarchical backup system
-│   │   ├── export.js       # Export to .ppg file
-│   │   ├── import.js       # Import and merge
+│   │   ├── export.js       # Export to .ppg file (with encryption)
+│   │   ├── import.js       # Import and merge (with decryption)
 │   │   ├── hierarchy.js    # Level validation
 │   │   └── backup.js       # Legacy backup utilities
+│   ├── /security           # Security and encryption modules
+│   │   ├── keyManager.js   # PIN management, key derivation
+│   │   ├── cryptoUtils.js  # AES-256-GCM encryption
+│   │   ├── signatureManager.js # ECDSA digital signatures
+│   │   └── securityUI.js   # PIN screens, security status
 │   ├── /akademik           # Academic report engine
 │   │   ├── kehadiranEngine.js  # Attendance calculation
 │   │   ├── materiEngine.js     # Subject mastery analysis
@@ -208,6 +215,215 @@ PPG supports three user roles with different permissions:
 
 ---
 
+## Security Architecture
+
+PPG implements production-grade security for offline data protection. All cryptographic operations use the Web Crypto API with no external dependencies.
+
+### Security Overview
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Database Encryption** | SQLCipher (AES-256) | Encrypt all local data at rest |
+| **Key Derivation** | PBKDF2-SHA256 (100k iterations) | Derive encryption keys from PIN |
+| **Backup Encryption** | AES-256-GCM | Encrypt backup file contents |
+| **Digital Signatures** | ECDSA P-256 | Verify backup authenticity |
+| **Integrity Check** | SHA-256 | Detect data tampering |
+
+### Key Hierarchy
+
+PPG uses a three-component key derivation system:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    User PIN (4-8 digits)                     │
+│                         (secret)                             │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                    PBKDF2-SHA256                             │
+│                  (100,000 iterations)                        │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+          ┌───────────┴───────────┐
+          │                       │
+┌─────────▼─────────┐   ┌────────▼────────┐
+│   Device Salt     │   │  Wilayah Key    │
+│ (auto-generated)  │   │ (organizational)│
+└─────────┬─────────┘   └────────┬────────┘
+          │                       │
+          └───────────┬───────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│              Database Encryption Key (32 bytes)              │
+│                    (AES-256-GCM key)                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Components:**
+
+| Component | Storage | Purpose |
+|-----------|---------|---------|
+| User PIN | Never stored (only hash) | User authentication |
+| Device Salt | Secure storage | Unique per device |
+| Wilayah Key | Secure storage | Organizational key |
+| DB Key | Memory only | Encrypts SQLCipher database |
+
+### PIN Security
+
+- **Minimum Length**: 4 digits
+- **Maximum Length**: 8 digits
+- **Storage**: Salted PBKDF2 hash only (PIN never stored)
+- **Lockout**: 5 failed attempts = 5 minute lockout
+- **Auto-Lock**: Database locks when app is backgrounded
+
+### Database Encryption
+
+PPG uses SQLCipher for transparent database encryption:
+
+```javascript
+// Database unlock flow
+import { verifyPIN, deriveDBKeyQuick } from './security/keyManager.js';
+
+// 1. User enters PIN
+const isValid = await verifyPIN(userId, enteredPIN);
+
+// 2. Derive encryption key
+const dbKey = await deriveDBKeyQuick(userId);
+
+// 3. Unlock SQLCipher database
+await unlockDatabase(dbKey);
+```
+
+**Encryption Details:**
+- Algorithm: AES-256 in GCM mode
+- Key Size: 256 bits (32 bytes)
+- IV Size: 96 bits (12 bytes)
+- Authentication Tag: 128 bits
+
+### Backup Encryption
+
+Encrypted backups use a layered security approach:
+
+```
+┌────────────────────────────────────────┐
+│         Encrypted .ppg File            │
+├────────────────────────────────────────┤
+│  1. data.enc (AES-256-GCM encrypted)   │
+│  2. encryption.json (crypto metadata)   │
+│  3. signature.sig (ECDSA signature)     │
+│  4. meta.json (backup metadata)         │
+│  5. hash.txt (SHA-256 checksum)         │
+└────────────────────────────────────────┘
+```
+
+#### encryption.json Structure
+
+```json
+{
+    "version": 1,
+    "algorithm": "AES-256-GCM",
+    "iv": "hex-encoded-iv",
+    "aadHash": "hex-encoded-sha256",
+    "checksum": "hex-encoded-sha256",
+    "originalSize": 123456,
+    "encryptedSize": 123472,
+    "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+### Digital Signatures
+
+Each organizational level has its own ECDSA P-256 key pair:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Key Hierarchy                             │
+├─────────────────────────────────────────────────────────────┤
+│  DPW  ────► Public key embedded (trusted root)              │
+│    ↓                                                         │
+│  DPD  ────► Signs backups, public key shared to children    │
+│    ↓                                                         │
+│  PC   ────► Signs backups, public key shared to children    │
+│    ↓                                                         │
+│  Mubaligh ─► Signs backups, public key shared to parents    │
+│    ↓                                                         │
+│  Orang Tua ► Signs backups for upload                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Signature Verification:**
+
+```javascript
+import { verifyBackupSignature, validateHierarchyTrust } from './security/signatureManager.js';
+
+// Verify backup signature
+const result = await verifyBackupSignature(backupData, signatureBytes, publicKey);
+// result: { valid: true, signedAt: "2024-01-15T10:30:00Z", level: "mubaligh" }
+
+// Validate hierarchy trust chain
+const trustResult = await validateHierarchyTrust(sourceLevel, targetLevel, publicKey);
+// result: { trusted: true, chain: ["orang_tua", "mubaligh"] }
+```
+
+### Trust Chain Validation
+
+Import operations validate the trust chain:
+
+| Importer Level | Valid Source | Trust Validation |
+|----------------|--------------|------------------|
+| Mubaligh | Orang Tua | Verify parent's signature |
+| PC | Mubaligh | Verify teacher's signature |
+| DPD | PC | Verify branch signature |
+| DPW | DPD | Verify regional signature |
+
+### Security Modules
+
+PPG security is implemented across these modules:
+
+| File | Purpose |
+|------|---------|
+| `/app/security/keyManager.js` | PIN management, key derivation, secure storage |
+| `/app/security/cryptoUtils.js` | AES-256-GCM encryption, packed format handling |
+| `/app/security/signatureManager.js` | ECDSA key pairs, signing, verification |
+| `/app/security/securityUI.js` | PIN setup/login screens, security status display |
+
+### Disaster Recovery
+
+#### Lost PIN
+
+If a user forgets their PIN:
+
+1. **Data Loss Warning**: Cannot recover encrypted data without PIN
+2. **Reset Option**: Clear app data and restore from backup
+3. **Prevention**: Encourage regular encrypted backups with stored encryption key
+
+#### Device Loss
+
+1. **Data Protected**: SQLCipher encryption prevents unauthorized access
+2. **Recovery**: Import encrypted backup on new device
+3. **Key Requirement**: Need original encryption key and backup file
+
+#### Backup Recovery Process
+
+```
+1. Install PPG on new device
+2. Set up new PIN (creates new device salt)
+3. Import encrypted .ppg backup file
+4. Enter backup encryption key (if different from current)
+5. Verify signature (validates authenticity)
+6. Merge data into new database
+```
+
+### Security Best Practices
+
+1. **Choose Strong PIN**: Use 6-8 digits, avoid patterns
+2. **Regular Backups**: Export encrypted backups periodically
+3. **Secure Key Storage**: Keep backup encryption keys safe (offline)
+4. **Verify Signatures**: Always check backup signatures before import
+5. **Update Keys**: Rotate wilayah keys periodically
+
+---
+
 ## Hierarchical Backup System
 
 PPG implements a hierarchical backup and data flow system designed for organizational data aggregation without requiring internet connectivity.
@@ -260,11 +476,22 @@ Each level can **only** import from the level immediately below:
 
 Backups are exported as `.ppg` files (ZIP format internally) containing:
 
+#### Standard Backup (Unencrypted)
 ```
 backup_file.ppg (ZIP)
 ├── data.json      # All database records
 ├── meta.json      # Backup metadata
 └── hash.txt       # SHA-256 checksum
+```
+
+#### Secure Backup (Encrypted + Signed)
+```
+backup_file.ppg (ZIP)
+├── data.enc           # AES-256-GCM encrypted database
+├── encryption.json    # Encryption metadata (IV, checksums)
+├── signature.sig      # ECDSA P-256 digital signature
+├── meta.json          # Backup metadata (includes security_level)
+└── hash.txt           # SHA-256 checksum
 ```
 
 #### meta.json Structure
@@ -648,13 +875,17 @@ await KehadiranService.bulkRecordAttendance(session.id, [
 - [x] UI for rapor generation and display
 - [x] Model C: Numeric + Predicate + Narrative + Recommendation
 
-### Phase 4: Encryption & Security (Planned)
+### Phase 4: Encryption & Security (Completed)
 
-- [ ] SQLCipher integration for database encryption
-- [ ] PIN/password protection for app access
-- [ ] Secure key storage
-- [ ] Biometric authentication (Capacitor)
-- [ ] Encrypted backup files
+- [x] SQLCipher integration for database encryption
+- [x] PIN protection for app access (4-8 digit)
+- [x] Secure key storage (PBKDF2 key derivation)
+- [x] AES-256-GCM encrypted backup files
+- [x] ECDSA P-256 digital signatures
+- [x] Hierarchy trust chain validation
+- [x] Auto-lock on app background
+- [x] PIN lockout after failed attempts
+- [ ] Biometric authentication (future enhancement)
 
 ### Phase 5: Enhanced Features (Planned)
 
@@ -834,11 +1065,13 @@ PPG Android includes these native capabilities:
 | Feature | Plugin | Status |
 |---------|--------|--------|
 | **Native SQLite** | @capacitor-community/sqlite | Active |
+| **SQLCipher** | @capacitor-community/sqlite | Active |
 | **File System** | @capacitor/filesystem | Active |
 | **Splash Screen** | @capacitor/splash-screen | Active |
 | **Status Bar** | @capacitor/status-bar | Active |
-| **Biometrics** | Planned | Future |
-| **SQLCipher** | Planned | Future |
+| **AES-256-GCM** | Web Crypto API | Active |
+| **ECDSA Signatures** | Web Crypto API | Active |
+| **Biometrics** | @capacitor-community/sqlite | Future |
 
 ### Backup Files on Android
 

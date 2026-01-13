@@ -20,17 +20,18 @@
     },
     "CapacitorSQLite": {
       "iosDatabaseLocation": "Library/CapacitorDatabase",
-      "iosIsEncryption": false,
+      "iosIsEncryption": true,
       "iosKeychainPrefix": "com.ppg.offline",
       "iosBiometric": {
         "biometricAuth": false,
         "biometricTitle": "Biometric login for PPG"
       },
-      "androidIsEncryption": false,
+      "androidIsEncryption": true,
       "androidBiometric": {
         "biometricAuth": false,
         "biometricTitle": "Biometric login for PPG"
-      }
+      },
+      "electronIsEncryption": true
     },
     "StatusBar": {
       "backgroundColor": "#1a5f2a",

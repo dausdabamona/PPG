@@ -5,6 +5,11 @@
  * Imports .ppg backup files and merges data into local database using
  * offline-first merge strategy with conflict detection and logging.
  *
+ * Security Features:
+ * - Decryption of AES-256-GCM encrypted backups
+ * - Digital signature verification (ECDSA P-256)
+ * - Hierarchical trust chain validation
+ *
  * Import validation enforces hierarchy:
  * OrangTua -> Mubaligh -> PC -> DPD -> DPW
  *
@@ -17,8 +22,11 @@
 
 import DB from '../db/db.js';
 import { validateImportPermission, getLevelName, isValidLevel } from './hierarchy.js';
-import { calculateChecksum, EXPORT_TABLES, APP_VERSION } from './export.js';
+import { calculateChecksum, EXPORT_TABLES, APP_VERSION, SECURITY_VERSION } from './export.js';
 import FileService from '../services/fileService.js';
+import { decryptBackupData } from '../security/cryptoUtils.js';
+import { verifyBackupSignature, validateHierarchyTrust } from '../security/signatureManager.js';
+import { base64ToBytes } from '../security/keyManager.js';
 
 /**
  * Tables that should be merged (order matters for foreign keys)
@@ -94,21 +102,63 @@ async function parseBackupData(data, fileName) {
         try {
             const zip = await JSZip.loadAsync(data);
 
+            // Check for encrypted backup
+            const encryptedFile = zip.file('data.enc');
+            const encryptionFile = zip.file('encryption.json');
+            const signatureFile = zip.file('signature.sig');
+
+            // Check for unencrypted backup
             const dataFile = zip.file('data.json');
             const metaFile = zip.file('meta.json');
             const hashFile = zip.file('hash.txt');
 
-            if (!dataFile || !metaFile) {
-                throw new Error('Invalid backup: missing required files');
+            if (!metaFile) {
+                throw new Error('Invalid backup: missing meta.json');
             }
 
-            const parsedData = JSON.parse(await dataFile.async('string'));
             const meta = JSON.parse(await metaFile.async('string'));
             const hash = hashFile ? (await hashFile.async('string')).trim() : null;
 
-            return { data: parsedData, meta, hash, format: 'zip' };
+            // Handle encrypted backup
+            if (encryptedFile && encryptionFile) {
+                const encryptedData = await encryptedFile.async('uint8array');
+                const encryptionHeader = JSON.parse(await encryptionFile.async('string'));
+                const signature = signatureFile
+                    ? JSON.parse(await signatureFile.async('string'))
+                    : null;
+
+                return {
+                    data: null,  // Will be decrypted later
+                    encryptedData: encryptedData,
+                    encryptionHeader: encryptionHeader,
+                    signature: signature,
+                    meta: meta,
+                    hash: hash,
+                    format: 'zip_encrypted',
+                    encrypted: true
+                };
+            }
+
+            // Handle unencrypted backup
+            if (!dataFile) {
+                throw new Error('Invalid backup: missing data.json');
+            }
+
+            const parsedData = JSON.parse(await dataFile.async('string'));
+            const signature = signatureFile
+                ? JSON.parse(await signatureFile.async('string'))
+                : null;
+
+            return {
+                data: parsedData,
+                meta: meta,
+                hash: hash,
+                signature: signature,
+                format: 'zip',
+                encrypted: false
+            };
         } catch (zipError) {
-            console.log('[Import] Not a zip file, trying JSON format...');
+            console.log('[Import] Not a zip file, trying JSON format...', zipError.message);
         }
     }
 
@@ -117,11 +167,27 @@ async function parseBackupData(data, fileName) {
     const parsed = JSON.parse(jsonContent);
 
     if (parsed._format === 'ppg_combined') {
+        // Check for encrypted version
+        if (parsed._version >= 2 && parsed.encryptedData) {
+            return {
+                data: null,
+                encryptedData: base64ToBytes(parsed.encryptedData),
+                encryptionHeader: parsed.encryptionHeader,
+                signature: parsed.signature,
+                meta: parsed.meta,
+                hash: parsed.hash,
+                format: 'json_encrypted',
+                encrypted: true
+            };
+        }
+
         return {
             data: parsed.data,
             meta: parsed.meta,
             hash: parsed.hash,
-            format: 'json'
+            signature: parsed.signature,
+            format: 'json',
+            encrypted: false
         };
     } else if (parsed.data && parsed.metadata) {
         // Legacy format support
@@ -129,10 +195,108 @@ async function parseBackupData(data, fileName) {
             data: parsed.data,
             meta: parsed.metadata,
             hash: null,
-            format: 'legacy'
+            format: 'legacy',
+            encrypted: false
         };
     } else {
         throw new Error('Unknown backup format');
+    }
+}
+
+/**
+ * Decrypt backup data
+ * @param {object} backup - Parsed backup with encrypted data
+ * @param {Uint8Array} decryptionKey - 32-byte decryption key
+ * @returns {Promise<object>} Backup with decrypted data
+ */
+async function decryptBackup(backup, decryptionKey) {
+    if (!backup.encrypted || !backup.encryptedData) {
+        return backup;  // Not encrypted, return as-is
+    }
+
+    console.log('[Import] Decrypting backup...');
+
+    try {
+        const decryptedBytes = await decryptBackupData(
+            backup.encryptedData,
+            decryptionKey,
+            backup.encryptionHeader,
+            JSON.stringify({
+                timestamp: backup.encryptionHeader.timestamp,
+                format: 'ppg_backup',
+                level: backup.meta?.security?.wilayah_id,
+                wilayah_id: backup.meta?.security?.wilayah_id
+            })
+        );
+
+        // Parse decrypted JSON
+        const decryptedString = new TextDecoder().decode(decryptedBytes);
+        const decryptedData = JSON.parse(decryptedString);
+
+        console.log('[Import] Backup decrypted successfully');
+
+        return {
+            ...backup,
+            data: decryptedData,
+            decrypted: true
+        };
+    } catch (error) {
+        console.error('[Import] Decryption failed:', error);
+        throw new Error('Gagal mendekripsi backup. Kunci mungkin salah.');
+    }
+}
+
+/**
+ * Verify backup signature
+ * @param {object} backup - Parsed backup with signature
+ * @returns {Promise<object>} Verification result
+ */
+async function verifyBackup(backup) {
+    if (!backup.signature) {
+        return {
+            verified: false,
+            reason: 'no_signature',
+            message: 'Backup tidak ditandatangani'
+        };
+    }
+
+    console.log('[Import] Verifying backup signature...');
+
+    try {
+        // Get the data to verify (encrypted or decrypted)
+        const dataToVerify = backup.encrypted
+            ? backup.encryptedData
+            : new TextEncoder().encode(JSON.stringify(backup.data));
+
+        const result = await verifyBackupSignature(
+            dataToVerify,
+            backup.meta,
+            backup.signature
+        );
+
+        if (result.valid) {
+            console.log('[Import] Signature verified successfully');
+            return {
+                verified: true,
+                signerLevel: result.signerLevel,
+                signerEntityId: result.signerEntityId,
+                message: `Ditandatangani oleh ${getLevelName(result.signerLevel)}`
+            };
+        } else {
+            console.warn('[Import] Signature verification failed:', result.error);
+            return {
+                verified: false,
+                reason: 'invalid_signature',
+                message: result.error || 'Tanda tangan tidak valid'
+            };
+        }
+    } catch (error) {
+        console.error('[Import] Signature verification error:', error);
+        return {
+            verified: false,
+            reason: 'verification_error',
+            message: 'Gagal memverifikasi tanda tangan'
+        };
     }
 }
 
@@ -675,6 +839,7 @@ async function loadJSZip() {
 // =============================================================================
 
 const ImportModule = {
+    // Standard import
     importBackup,
     previewImport,
     parseBackupFile,
@@ -683,10 +848,16 @@ const ImportModule = {
     getConflicts,
     getImportHistory,
     loadJSZip,
+
+    // Security functions
+    decryptBackup,
+    verifyBackup,
+
     // FileService integration
     pickFile,
     listAvailableBackups,
     readBackupFromPath,
+
     MERGE_TABLES
 };
 
@@ -705,6 +876,8 @@ export {
     parseBackupFile,
     parseBackupData,
     validateBackup,
+    decryptBackup,
+    verifyBackup,
     getConflicts,
     getImportHistory,
     loadJSZip,
