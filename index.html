@@ -338,6 +338,171 @@
             width: 100%;
         }
 
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: var(--white);
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-info {
+            background: var(--info-color);
+            color: var(--white);
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .btn-row .btn {
+            flex: 1;
+        }
+
+        /* =================================================================
+           Modal
+           ================================================================= */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--white);
+            border-radius: var(--radius);
+            max-width: 400px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .modal-body {
+            padding: 16px;
+        }
+
+        .modal-footer {
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            background: var(--white);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border: 1px solid #b6d4fe;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 0.85rem;
+            color: #084298;
+            margin-bottom: 16px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffecb5;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 0.85rem;
+            color: #664d03;
+            margin-bottom: 16px;
+        }
+
+        .success-box {
+            background: #d1e7dd;
+            border: 1px solid #badbcc;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 0.85rem;
+            color: #0f5132;
+            margin-bottom: 16px;
+        }
+
+        .error-box {
+            background: #f8d7da;
+            border: 1px solid #f5c2c7;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 0.85rem;
+            color: #842029;
+            margin-bottom: 16px;
+        }
+
         /* =================================================================
            Welcome Section
            ================================================================= */
@@ -518,6 +683,30 @@
                     </button>
                 </div>
             </div>
+
+            <!-- Backup & Sync -->
+            <div class="card">
+                <div class="card-header">
+                    <span>&#128230;</span>
+                    <span>Backup & Sinkronisasi</span>
+                </div>
+                <div class="card-body">
+                    <div class="info-box">
+                        <strong>Hierarki Backup:</strong><br>
+                        Orang Tua &#8594; Mubaligh &#8594; PC &#8594; DPD &#8594; DPW
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn btn-success" onclick="showExportModal()">
+                            <span>&#8593;</span>
+                            Export Backup
+                        </button>
+                        <button class="btn btn-info" onclick="showImportModal()">
+                            <span>&#8595;</span>
+                            Import Backup
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Jamaah Page (Placeholder) -->
@@ -541,6 +730,93 @@
 
         <!-- Other pages will be added here -->
     </main>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="exportModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span>&#8593; Export Backup</span>
+                <button class="modal-close" onclick="closeModal('exportModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="info-box">
+                    Backup akan diekspor sebagai file <strong>.ppg</strong> yang dapat diimpor oleh level di atas Anda.
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Level Anda</label>
+                    <select class="form-select" id="exportLevel">
+                        <option value="orang_tua">Orang Tua</option>
+                        <option value="mubaligh" selected>Mubaligh</option>
+                        <option value="pc">Pimpinan Cabang (PC)</option>
+                        <option value="dpd">Dewan Pimpinan Daerah (DPD)</option>
+                        <option value="dpw">Dewan Pimpinan Wilayah (DPW)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Nama Wilayah (opsional)</label>
+                    <input type="text" class="form-input" id="exportWilayah" placeholder="Contoh: Cabang Jakarta Selatan">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Catatan (opsional)</label>
+                    <input type="text" class="form-input" id="exportNotes" placeholder="Catatan untuk backup ini">
+                </div>
+
+                <div id="exportResult"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('exportModal')">Batal</button>
+                <button class="btn btn-success" id="btnDoExport" onclick="doExport()">
+                    <span>&#8593;</span> Export
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div class="modal-overlay" id="importModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span>&#8595; Import Backup</span>
+                <button class="modal-close" onclick="closeModal('importModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="warning-box">
+                    <strong>Validasi Hierarki:</strong><br>
+                    Anda hanya dapat mengimpor dari level tepat di bawah Anda.
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Level Anda</label>
+                    <select class="form-select" id="importLevel">
+                        <option value="mubaligh" selected>Mubaligh (impor dari Orang Tua)</option>
+                        <option value="pc">PC (impor dari Mubaligh)</option>
+                        <option value="dpd">DPD (impor dari PC)</option>
+                        <option value="dpw">DPW (impor dari DPD)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Pilih File Backup (.ppg)</label>
+                    <input type="file" class="form-input" id="importFile" accept=".ppg,.json" onchange="previewImportFile()">
+                </div>
+
+                <div id="importPreview"></div>
+                <div id="importResult"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('importModal')">Batal</button>
+                <button class="btn btn-info" id="btnDoImport" onclick="doImport()" disabled>
+                    <span>&#8595;</span> Import & Merge
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for import -->
+    <input type="file" id="hiddenFileInput" accept=".ppg,.json" style="display:none">
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
@@ -571,10 +847,16 @@
         import DB from './app/db/db.js';
         import Migrate from './app/db/migrate.js';
         import JamaahService from './app/services/jamaahService.js';
+        import BackupExport from './app/backup/export.js';
+        import BackupImport from './app/backup/import.js';
+        import Hierarchy from './app/backup/hierarchy.js';
 
         // Make available globally for onclick handlers
         window.DB = DB;
         window.JamaahService = JamaahService;
+        window.BackupExport = BackupExport;
+        window.BackupImport = BackupImport;
+        window.Hierarchy = Hierarchy;
 
         // =================================================================
         // App Initialization
@@ -694,6 +976,223 @@
         window.addEventListener('online', updateOnlineStatus);
         window.addEventListener('offline', updateOnlineStatus);
         updateOnlineStatus();
+
+        // =================================================================
+        // Modal Functions
+        // =================================================================
+        window.showExportModal = function() {
+            document.getElementById('exportResult').innerHTML = '';
+            document.getElementById('exportModal').classList.add('show');
+        };
+
+        window.showImportModal = function() {
+            document.getElementById('importPreview').innerHTML = '';
+            document.getElementById('importResult').innerHTML = '';
+            document.getElementById('importFile').value = '';
+            document.getElementById('btnDoImport').disabled = true;
+            document.getElementById('importModal').classList.add('show');
+        };
+
+        window.closeModal = function(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        };
+
+        // Close modal when clicking outside
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('show');
+                }
+            });
+        });
+
+        // =================================================================
+        // Export Backup
+        // =================================================================
+        window.doExport = async function() {
+            const resultDiv = document.getElementById('exportResult');
+            const btn = document.getElementById('btnDoExport');
+
+            const level = document.getElementById('exportLevel').value;
+            const wilayah = document.getElementById('exportWilayah').value;
+            const notes = document.getElementById('exportNotes').value;
+
+            resultDiv.innerHTML = '<div class="info-box">Memproses export...</div>';
+            btn.disabled = true;
+
+            try {
+                // Load JSZip if needed
+                await BackupExport.loadJSZip();
+
+                const result = await BackupExport.createBackup({
+                    level: level,
+                    wilayah_id: wilayah ? DB.generateUUID() : null,
+                    wilayah_name: wilayah,
+                    created_by: 'current_user',
+                    created_by_name: 'Current User',
+                    notes: notes
+                });
+
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success-box">
+                            <strong>Export Berhasil!</strong><br>
+                            File: ${result.fileName}<br>
+                            Total record: ${result.metadata.total_records}<br>
+                            Checksum: ${result.checksum.substring(0, 16)}...
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error-box">
+                            <strong>Export Gagal</strong><br>
+                            ${result.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+
+            btn.disabled = false;
+        };
+
+        // =================================================================
+        // Import Backup
+        // =================================================================
+        let selectedImportFile = null;
+
+        window.previewImportFile = async function() {
+            const fileInput = document.getElementById('importFile');
+            const previewDiv = document.getElementById('importPreview');
+            const importBtn = document.getElementById('btnDoImport');
+            const importerLevel = document.getElementById('importLevel').value;
+
+            selectedImportFile = fileInput.files[0];
+
+            if (!selectedImportFile) {
+                previewDiv.innerHTML = '';
+                importBtn.disabled = true;
+                return;
+            }
+
+            previewDiv.innerHTML = '<div class="info-box">Memvalidasi file...</div>';
+
+            try {
+                // Load JSZip if needed
+                await BackupImport.loadJSZip();
+
+                const preview = await BackupImport.previewImport(selectedImportFile, importerLevel);
+
+                if (preview.validation.valid) {
+                    previewDiv.innerHTML = `
+                        <div class="success-box">
+                            <strong>File Valid</strong><br>
+                            Level sumber: ${Hierarchy.getLevelName(preview.meta.level)}<br>
+                            Dibuat: ${new Date(preview.meta.created_at).toLocaleString('id-ID')}<br>
+                            Total record: ${preview.totalRecords}<br>
+                            Tables: ${Object.keys(preview.tableCounts).length}
+                        </div>
+                    `;
+                    importBtn.disabled = false;
+                } else {
+                    previewDiv.innerHTML = `
+                        <div class="error-box">
+                            <strong>Validasi Gagal</strong><br>
+                            ${preview.validation.errors.join('<br>')}
+                        </div>
+                    `;
+                    importBtn.disabled = true;
+                }
+
+                if (preview.validation.warnings.length > 0) {
+                    previewDiv.innerHTML += `
+                        <div class="warning-box">
+                            <strong>Peringatan:</strong><br>
+                            ${preview.validation.warnings.join('<br>')}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                previewDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+                importBtn.disabled = true;
+            }
+        };
+
+        window.doImport = async function() {
+            const resultDiv = document.getElementById('importResult');
+            const btn = document.getElementById('btnDoImport');
+            const importerLevel = document.getElementById('importLevel').value;
+
+            if (!selectedImportFile) {
+                resultDiv.innerHTML = '<div class="error-box">Pilih file terlebih dahulu</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="info-box">Mengimpor dan menggabungkan data...</div>';
+            btn.disabled = true;
+
+            try {
+                const result = await BackupImport.importBackup(selectedImportFile, {
+                    importerLevel: importerLevel,
+                    importedBy: 'current_user',
+                    importedByName: 'Current User',
+                    onProgress: (progress) => {
+                        resultDiv.innerHTML = `
+                            <div class="info-box">
+                                Memproses ${progress.table}...<br>
+                                ${progress.current}/${progress.total} record
+                            </div>
+                        `;
+                    }
+                });
+
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success-box">
+                            <strong>Import Berhasil!</strong><br>
+                            Ditambahkan: ${result.stats.inserted}<br>
+                            Diperbarui: ${result.stats.updated}<br>
+                            Dilewati: ${result.stats.skipped}<br>
+                            Konflik: ${result.stats.conflicts}
+                        </div>
+                    `;
+
+                    // Refresh stats
+                    await loadStats();
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error-box">
+                            <strong>Import Gagal</strong><br>
+                            ${result.error}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+
+            btn.disabled = false;
+        };
+
+        // Re-validate on level change
+        document.getElementById('importLevel').addEventListener('change', function() {
+            if (selectedImportFile) {
+                previewImportFile();
+            }
+        });
 
         // =================================================================
         // Start App

@@ -13,6 +13,7 @@ A Progressive Web App (PWA) designed for managing students (jamaah), classes (ke
 - [Folder Structure](#folder-structure)
 - [Database Schema](#database-schema)
 - [User Roles](#user-roles)
+- [Hierarchical Backup System](#hierarchical-backup-system)
 - [Getting Started](#getting-started)
 - [Development Roadmap](#development-roadmap)
 - [Offline-First Design](#offline-first-design)
@@ -85,9 +86,18 @@ PPG is built with an **offline-first architecture**, meaning:
 │   ├── /pages          # HTML pages for each feature
 │   ├── /components     # Reusable UI components
 │   ├── /services       # Business logic and data services
+│   │   ├── jamaahService.js
+│   │   └── kehadiranService.js
 │   ├── /db             # Database initialization and migrations
-│   ├── /backup         # Backup/restore functionality
+│   │   ├── db.js       # SQLite initialization
+│   │   └── migrate.js  # Schema migrations
+│   ├── /backup         # Hierarchical backup system
+│   │   ├── export.js   # Export to .ppg file
+│   │   ├── import.js   # Import and merge
+│   │   ├── hierarchy.js # Level validation
+│   │   └── backup.js   # Legacy backup utilities
 │   └── /roles          # Role-based access control
+│       └── roles.js
 ├── /android            # Capacitor Android project (future)
 ├── /schema             # SQL schema files
 │   ├── jamaah.sql
@@ -96,7 +106,9 @@ PPG is built with an **offline-first architecture**, meaning:
 │   ├── penilaian.sql
 │   ├── kelas_mandiri.sql
 │   ├── catatan_pembinaan.sql
-│   └── rekomendasi_pendidikan.sql
+│   ├── rekomendasi_pendidikan.sql
+│   └── backup_sync.sql # Backup & merge logging tables
+├── index.html          # Main PWA entry point
 └── README.md
 ```
 
@@ -134,6 +146,9 @@ device_id TEXT                                        -- Origin device tracking
 | `kelas_mandiri` | Self-learning classes | `modul_mandiri`, `progress_mandiri` |
 | `catatan_pembinaan` | Guidance notes | `catatan_tindak_lanjut` |
 | `rekomendasi_pendidikan` | Expert recommendations | `rekomendasi_detail`, `rekomendasi_progress`, `konsultasi_pakar` |
+| `backup_log` | Backup export/import history | - |
+| `merge_log` | Record merge operations & conflicts | `backup_log` |
+| `wilayah` | Regional/organizational hierarchy | - |
 
 ---
 
@@ -161,6 +176,192 @@ PPG supports three user roles with different permissions:
 - **Recommend**: Create educational recommendations
 - **Consult**: Conduct and record consultations
 - **Monitor**: Track recommendation implementation
+
+---
+
+## Hierarchical Backup System
+
+PPG implements a hierarchical backup and data flow system designed for organizational data aggregation without requiring internet connectivity.
+
+### Organizational Hierarchy
+
+Data flows upward through the following levels:
+
+```
+┌─────────────────┐
+│       DPW       │  Dewan Pimpinan Wilayah (highest)
+│  (Provincial)   │
+└────────┬────────┘
+         │ imports from
+┌────────▼────────┐
+│       DPD       │  Dewan Pimpinan Daerah
+│   (Regional)    │
+└────────┬────────┘
+         │ imports from
+┌────────▼────────┐
+│       PC        │  Pimpinan Cabang
+│    (Branch)     │
+└────────┬────────┘
+         │ imports from
+┌────────▼────────┐
+│    Mubaligh     │  Teacher/Instructor
+│   (Teacher)     │
+└────────┬────────┘
+         │ imports from
+┌────────▼────────┐
+│   Orang Tua     │  Parent (lowest level)
+│    (Parent)     │
+└─────────────────┘
+```
+
+### Import Rules
+
+Each level can **only** import from the level immediately below:
+
+| Your Level | Can Import From | Cannot Import From |
+|------------|-----------------|-------------------|
+| Mubaligh | Orang Tua | PC, DPD, DPW |
+| PC | Mubaligh | Orang Tua, DPD, DPW |
+| DPD | PC | Orang Tua, Mubaligh, DPW |
+| DPW | DPD | Orang Tua, Mubaligh, PC |
+
+**Orang Tua** can only export, not import (lowest level).
+
+### .ppg Backup File Format
+
+Backups are exported as `.ppg` files (ZIP format internally) containing:
+
+```
+backup_file.ppg (ZIP)
+├── data.json      # All database records
+├── meta.json      # Backup metadata
+└── hash.txt       # SHA-256 checksum
+```
+
+#### meta.json Structure
+
+```json
+{
+    "backup_id": "uuid",
+    "file_format": "ppg",
+    "format_version": 1,
+    "level": "mubaligh",
+    "level_name": "Mubaligh",
+    "wilayah_id": "uuid",
+    "wilayah_name": "Cabang Jakarta Selatan",
+    "created_by": "user_id",
+    "created_by_name": "Ustadz Ahmad",
+    "device_id": "device_uuid",
+    "created_at": "2024-01-15T10:30:00.000Z",
+    "app_version": "1.0.0",
+    "table_count": 15,
+    "total_records": 1250,
+    "target_level": "pc",
+    "target_level_name": "Pimpinan Cabang (PC)"
+}
+```
+
+### Merge Strategy
+
+PPG uses an **offline-first, last-write-wins** merge strategy with version tracking:
+
+#### Conflict Resolution Algorithm
+
+```
+For each incoming record:
+1. Check if record exists locally (by UUID)
+2. If NOT exists → INSERT new record
+3. If EXISTS:
+   a. Compare sync_version (incoming vs local)
+   b. If incoming > local → UPDATE with incoming
+   c. If incoming = local → Compare last_modified
+      - If incoming > local → UPDATE
+      - If incoming = local → SKIP (identical)
+      - If incoming < local → SKIP (local is newer)
+   d. If incoming < local → SKIP & log conflict
+4. Log all merge operations to merge_log table
+```
+
+#### Merge Fields Used
+
+| Field | Purpose |
+|-------|---------|
+| `id` | UUID - unique identifier for matching records |
+| `sync_version` | Integer - increments on each local change |
+| `last_modified` | Timestamp - used as tiebreaker |
+| `device_id` | Source device tracking for audit |
+
+### Backup Logging
+
+All backup operations are logged to `backup_log`:
+
+```sql
+-- Export operation
+INSERT INTO backup_log (
+    operation = 'export',
+    level = 'mubaligh',
+    records_exported = 500,
+    status = 'completed'
+);
+
+-- Import operation
+INSERT INTO backup_log (
+    operation = 'import',
+    level = 'pc',
+    source_level = 'mubaligh',
+    records_imported = 500,
+    records_merged = 450,
+    records_skipped = 50,
+    conflicts_count = 5
+);
+```
+
+### Merge Logging
+
+Individual record merges are logged to `merge_log`:
+
+```sql
+-- Successful update
+INSERT INTO merge_log (
+    table_name = 'jamaah',
+    record_id = 'uuid',
+    action = 'updated',
+    local_sync_version = 3,
+    incoming_sync_version = 5,
+    source_level = 'orang_tua'
+);
+
+-- Conflict detected
+INSERT INTO merge_log (
+    action = 'skipped',
+    conflict_type = 'version_conflict',
+    conflict_details = 'Local newer: v5 vs v3'
+);
+```
+
+### Usage Example
+
+```javascript
+// Export backup
+import BackupExport from './app/backup/export.js';
+
+const result = await BackupExport.createBackup({
+    level: 'mubaligh',
+    wilayah_name: 'Cabang Jakarta Selatan',
+    created_by: 'ustadz_ahmad',
+    notes: 'Backup bulanan Januari 2024'
+});
+// Downloads: ppg_backup_mubaligh_2024-01-15.ppg
+
+// Import backup (at PC level)
+import BackupImport from './app/backup/import.js';
+
+const importResult = await BackupImport.importBackup(file, {
+    importerLevel: 'pc',
+    importedBy: 'admin_pc'
+});
+// Result: { inserted: 100, updated: 50, skipped: 10, conflicts: 2 }
+```
 
 ---
 
@@ -233,37 +434,42 @@ await KehadiranService.bulkRecordAttendance(session.id, [
 
 ## Development Roadmap
 
-### Phase 1: Foundation (Current)
+### Phase 1: Foundation (Completed)
 
 - [x] SQLite schema design with offline-sync fields
 - [x] Database initialization (db.js)
 - [x] Migration system (migrate.js)
 - [x] CRUD services for Jamaah and Kehadiran
-- [ ] Basic HTML UI pages
-- [ ] Role-based navigation
+- [x] Basic HTML UI with mobile-first design
+- [x] Role-based access control (roles.js)
 
-### Phase 2: Encryption & Security
+### Phase 2: Hierarchical Backup (Completed)
+
+- [x] Export database to .ppg file (ZIP format)
+- [x] Metadata and checksum generation
+- [x] Organizational hierarchy validation (5 levels)
+- [x] Import with level validation
+- [x] Last-write-wins merge strategy
+- [x] Backup and merge logging tables
+- [x] UI buttons for export/import
+
+### Phase 3: Encryption & Security (Planned)
 
 - [ ] SQLCipher integration for database encryption
 - [ ] PIN/password protection for app access
 - [ ] Secure key storage
 - [ ] Biometric authentication (Capacitor)
+- [ ] Encrypted backup files
 
-### Phase 3: Backup & Restore
+### Phase 4: Enhanced Features (Planned)
 
-- [ ] Export database to encrypted file
-- [ ] Import/restore from backup file
+- [ ] Complete UI for all modules
 - [ ] Automatic backup scheduling
 - [ ] Backup to local storage/SD card
+- [ ] Conflict resolution UI
+- [ ] Reports and analytics
 
-### Phase 4: Multi-Device Sync (Optional)
-
-- [ ] Manual file-based sync between devices
-- [ ] Conflict resolution strategies
-- [ ] Merge algorithms for concurrent edits
-- [ ] Sync history and audit log
-
-### Phase 5: Android APK
+### Phase 5: Android APK (Planned)
 
 - [ ] Capacitor project setup
 - [ ] Native SQLite integration

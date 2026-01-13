@@ -25,7 +25,8 @@ const SCHEMA_FILES = [
     'penilaian',
     'kelas_mandiri',
     'catatan_pembinaan',
-    'rekomendasi_pendidikan'
+    'rekomendasi_pendidikan',
+    'backup_sync'  // Backup & sync tables (backup_log, merge_log, wilayah)
 ];
 
 /**
@@ -216,9 +217,12 @@ async function getMigrationStatus() {
 async function resetMigrations() {
     console.warn('[Migrate] RESETTING ALL MIGRATIONS - ALL DATA WILL BE LOST');
 
-    // Drop all tables
+    // Drop all tables (in reverse dependency order)
     const tables = [
         '_migrations',
+        'merge_log',
+        'backup_log',
+        'wilayah',
         'konsultasi_pakar',
         'rekomendasi_progress',
         'rekomendasi_detail',
@@ -636,6 +640,89 @@ CREATE TABLE IF NOT EXISTS konsultasi_pakar (
     is_deleted INTEGER NOT NULL DEFAULT 0,
     device_id TEXT
 );
+`;
+
+SCHEMAS.backup_sync = `
+CREATE TABLE IF NOT EXISTS backup_log (
+    id TEXT PRIMARY KEY NOT NULL,
+    file_name TEXT NOT NULL,
+    file_size INTEGER,
+    checksum TEXT,
+    operation TEXT NOT NULL CHECK(operation IN ('export', 'import')),
+    level TEXT NOT NULL CHECK(level IN ('orang_tua', 'mubaligh', 'pc', 'dpd', 'dpw')),
+    source_level TEXT,
+    wilayah_id TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    imported_at TEXT,
+    created_by TEXT,
+    imported_by TEXT,
+    records_exported INTEGER DEFAULT 0,
+    records_imported INTEGER DEFAULT 0,
+    records_merged INTEGER DEFAULT 0,
+    records_skipped INTEGER DEFAULT 0,
+    conflicts_count INTEGER DEFAULT 0,
+    app_version TEXT,
+    status TEXT DEFAULT 'completed' CHECK(status IN ('pending', 'in_progress', 'completed', 'failed')),
+    error_message TEXT,
+    notes TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_modified TEXT NOT NULL DEFAULT (datetime('now')),
+    sync_version INTEGER NOT NULL DEFAULT 1,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    device_id TEXT
+);
+CREATE TABLE IF NOT EXISTS merge_log (
+    id TEXT PRIMARY KEY NOT NULL,
+    backup_log_id TEXT,
+    table_name TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    action TEXT NOT NULL CHECK(action IN ('inserted', 'updated', 'skipped', 'conflict', 'deleted')),
+    local_sync_version INTEGER,
+    incoming_sync_version INTEGER,
+    local_last_modified TEXT,
+    incoming_last_modified TEXT,
+    source_level TEXT NOT NULL,
+    source_device_id TEXT,
+    conflict_type TEXT,
+    conflict_details TEXT,
+    resolution TEXT,
+    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_modified TEXT NOT NULL DEFAULT (datetime('now')),
+    sync_version INTEGER NOT NULL DEFAULT 1,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    device_id TEXT
+);
+CREATE TABLE IF NOT EXISTS wilayah (
+    id TEXT PRIMARY KEY NOT NULL,
+    level TEXT NOT NULL CHECK(level IN ('orang_tua', 'mubaligh', 'pc', 'dpd', 'dpw', 'pusat')),
+    parent_id TEXT,
+    kode TEXT UNIQUE,
+    nama TEXT NOT NULL,
+    alamat TEXT,
+    kota TEXT,
+    provinsi TEXT,
+    telepon TEXT,
+    email TEXT,
+    ketua_id TEXT,
+    nama_ketua TEXT,
+    status TEXT DEFAULT 'aktif' CHECK(status IN ('aktif', 'nonaktif')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_modified TEXT NOT NULL DEFAULT (datetime('now')),
+    sync_version INTEGER NOT NULL DEFAULT 1,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    device_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_backup_log_operation ON backup_log(operation);
+CREATE INDEX IF NOT EXISTS idx_backup_log_level ON backup_log(level);
+CREATE INDEX IF NOT EXISTS idx_backup_log_created_at ON backup_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_merge_log_backup ON merge_log(backup_log_id);
+CREATE INDEX IF NOT EXISTS idx_merge_log_table ON merge_log(table_name);
+CREATE INDEX IF NOT EXISTS idx_merge_log_action ON merge_log(action);
+CREATE INDEX IF NOT EXISTS idx_wilayah_level ON wilayah(level);
+CREATE INDEX IF NOT EXISTS idx_wilayah_parent ON wilayah(parent_id);
 `;
 
 // =============================================================================
