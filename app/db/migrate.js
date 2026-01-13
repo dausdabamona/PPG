@@ -30,7 +30,8 @@ const SCHEMA_FILES = [
     'rapor_periode',
     'rapor_materi',
     'rapor_akhlaq',
-    'rapor_rekomendasi'
+    'rapor_rekomendasi',
+    'kurikulum'     // Official curriculum tables
 ];
 
 /**
@@ -933,6 +934,141 @@ CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_status ON rapor_rekomendasi(sta
 CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_last_modified ON rapor_rekomendasi(last_modified);
 CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_progress_rek ON rapor_rekomendasi_progress(rekomendasi_id);
 CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_progress_tanggal ON rapor_rekomendasi_progress(tanggal);
+`;
+
+SCHEMAS.kurikulum = `
+-- =============================================================================
+-- Official Curriculum Tables (Kurikulum Pusat)
+-- =============================================================================
+-- These tables store the national curriculum data imported from Supabase
+-- via signed JSON packages from Pusat Kurikulum.
+
+-- Jenjang (Education Level)
+CREATE TABLE IF NOT EXISTS jenjang (
+    id TEXT PRIMARY KEY NOT NULL,
+    kode TEXT UNIQUE NOT NULL,
+    nama TEXT NOT NULL,
+    deskripsi TEXT,
+    urutan INTEGER NOT NULL DEFAULT 0,
+    status TEXT DEFAULT 'aktif' CHECK(status IN ('aktif', 'nonaktif')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Tingkat Jenjang (Grade Level within Education Level)
+CREATE TABLE IF NOT EXISTS tingkat_jenjang (
+    id TEXT PRIMARY KEY NOT NULL,
+    jenjang_id TEXT NOT NULL,
+    kode TEXT NOT NULL,
+    nama TEXT NOT NULL,
+    deskripsi TEXT,
+    urutan INTEGER NOT NULL DEFAULT 0,
+    usia_minimal INTEGER,
+    usia_maksimal INTEGER,
+    status TEXT DEFAULT 'aktif' CHECK(status IN ('aktif', 'nonaktif')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(jenjang_id, kode)
+);
+
+-- Kategori Materi (Subject Category)
+CREATE TABLE IF NOT EXISTS kategori_materi (
+    id TEXT PRIMARY KEY NOT NULL,
+    kode TEXT UNIQUE NOT NULL,
+    nama TEXT NOT NULL,
+    deskripsi TEXT,
+    warna TEXT,
+    icon TEXT,
+    urutan INTEGER NOT NULL DEFAULT 0,
+    status TEXT DEFAULT 'aktif' CHECK(status IN ('aktif', 'nonaktif')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Materi (Subject/Course)
+CREATE TABLE IF NOT EXISTS materi (
+    id TEXT PRIMARY KEY NOT NULL,
+    kategori_id TEXT NOT NULL,
+    kode TEXT NOT NULL,
+    nama TEXT NOT NULL,
+    deskripsi TEXT,
+    tujuan TEXT,
+    sumber_rujukan TEXT,
+    urutan INTEGER NOT NULL DEFAULT 0,
+    bobot INTEGER DEFAULT 1,
+    status TEXT DEFAULT 'aktif' CHECK(status IN ('aktif', 'nonaktif')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(kategori_id, kode)
+);
+
+-- Sub Materi (Sub-topic within Subject)
+CREATE TABLE IF NOT EXISTS sub_materi (
+    id TEXT PRIMARY KEY NOT NULL,
+    materi_id TEXT NOT NULL,
+    kode TEXT NOT NULL,
+    nama TEXT NOT NULL,
+    deskripsi TEXT,
+    kompetensi_dasar TEXT,
+    indikator TEXT,
+    urutan INTEGER NOT NULL DEFAULT 0,
+    estimasi_jam INTEGER,
+    status TEXT DEFAULT 'aktif' CHECK(status IN ('aktif', 'nonaktif')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(materi_id, kode)
+);
+
+-- Kurikulum Tingkat (Curriculum per Grade - links grades to subjects)
+CREATE TABLE IF NOT EXISTS kurikulum_tingkat (
+    id TEXT PRIMARY KEY NOT NULL,
+    tingkat_id TEXT NOT NULL,
+    materi_id TEXT NOT NULL,
+    semester INTEGER CHECK(semester IN (1, 2)),
+    target_kompetensi TEXT,
+    jam_per_minggu INTEGER,
+    jam_total INTEGER,
+    wajib INTEGER DEFAULT 1,
+    urutan INTEGER NOT NULL DEFAULT 0,
+    catatan TEXT,
+    status TEXT DEFAULT 'aktif' CHECK(status IN ('aktif', 'nonaktif')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(tingkat_id, materi_id, semester)
+);
+
+-- Kurikulum Version (Import history and version tracking)
+CREATE TABLE IF NOT EXISTS kurikulum_version (
+    id TEXT PRIMARY KEY NOT NULL,
+    version TEXT NOT NULL,
+    issued_by TEXT NOT NULL,
+    issued_at TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    signature_valid INTEGER NOT NULL DEFAULT 0,
+    public_key_id TEXT,
+    imported_at TEXT NOT NULL DEFAULT (datetime('now')),
+    imported_by TEXT,
+    records_imported INTEGER DEFAULT 0,
+    records_updated INTEGER DEFAULT 0,
+    records_skipped INTEGER DEFAULT 0,
+    notes TEXT,
+    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'superseded', 'revoked')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Indexes for curriculum tables
+CREATE INDEX IF NOT EXISTS idx_jenjang_kode ON jenjang(kode);
+CREATE INDEX IF NOT EXISTS idx_jenjang_urutan ON jenjang(urutan);
+CREATE INDEX IF NOT EXISTS idx_tingkat_jenjang_jenjang ON tingkat_jenjang(jenjang_id);
+CREATE INDEX IF NOT EXISTS idx_tingkat_jenjang_urutan ON tingkat_jenjang(urutan);
+CREATE INDEX IF NOT EXISTS idx_kategori_materi_kode ON kategori_materi(kode);
+CREATE INDEX IF NOT EXISTS idx_materi_kategori ON materi(kategori_id);
+CREATE INDEX IF NOT EXISTS idx_materi_kode ON materi(kode);
+CREATE INDEX IF NOT EXISTS idx_sub_materi_materi ON sub_materi(materi_id);
+CREATE INDEX IF NOT EXISTS idx_kurikulum_tingkat_tingkat ON kurikulum_tingkat(tingkat_id);
+CREATE INDEX IF NOT EXISTS idx_kurikulum_tingkat_materi ON kurikulum_tingkat(materi_id);
+CREATE INDEX IF NOT EXISTS idx_kurikulum_version_version ON kurikulum_version(version);
+CREATE INDEX IF NOT EXISTS idx_kurikulum_version_status ON kurikulum_version(status);
 `;
 
 // =============================================================================

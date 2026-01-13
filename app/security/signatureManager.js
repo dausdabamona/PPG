@@ -49,6 +49,14 @@ const HIERARCHY_LEVELS = {
 };
 
 /**
+ * Authority levels (non-hierarchical, trusted signers)
+ */
+const AUTHORITY_LEVELS = {
+    KURIKULUM_PUSAT: 'kurikulum_pusat',
+    ADMIN_PUSAT: 'admin_pusat'
+};
+
+/**
  * Level order for hierarchy validation
  */
 const LEVEL_ORDER = [
@@ -597,6 +605,7 @@ const SignatureManager = {
     // Configuration
     SIGNATURE_CONFIG,
     HIERARCHY_LEVELS,
+    AUTHORITY_LEVELS,
     LEVEL_ORDER,
 
     // Key generation
@@ -648,6 +657,7 @@ export default SignatureManager;
 export {
     SIGNATURE_CONFIG,
     HIERARCHY_LEVELS,
+    AUTHORITY_LEVELS,
     LEVEL_ORDER,
     generateKeyPair,
     generateLevelKeyPair,
@@ -658,6 +668,9 @@ export {
     verifyBackupSignature,
     validateHierarchyTrust,
     storeTrustedPublicKey,
+    getTrustedPublicKey,
+    importPublicKey,
+    exportPublicKey,
     getLevelName,
     getTargetLevel,
     getSourceLevel

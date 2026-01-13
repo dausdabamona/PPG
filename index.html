@@ -819,6 +819,11 @@
                             <span class="menu-label">Rapor</span>
                             <span class="menu-sublabel">Laporan akademik</span>
                         </a>
+                        <a href="#kurikulum" class="menu-item" onclick="showKurikulumImportModal()">
+                            <span class="menu-icon">&#128218;</span>
+                            <span class="menu-label">Kurikulum</span>
+                            <span class="menu-sublabel">Import pusat</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -1083,6 +1088,8 @@
         import BackupImport from './app/backup/import.js';
         import Hierarchy from './app/backup/hierarchy.js';
         import RaporEngine from './app/akademik/raporEngine.js';
+        import KurikulumUI from './app/import/kurikulumUI.js';
+        import KurikulumImporter from './app/import/kurikulumImporter.js';
 
         // Make available globally for onclick handlers
         window.DB = DB;
@@ -1091,6 +1098,9 @@
         window.BackupImport = BackupImport;
         window.Hierarchy = Hierarchy;
         window.RaporEngine = RaporEngine;
+        window.KurikulumUI = KurikulumUI;
+        window.KurikulumImporter = KurikulumImporter;
+        window.showKurikulumImportModal = KurikulumUI.showKurikulumImportModal;
 
         // =================================================================
         // App Initialization
@@ -1109,6 +1119,9 @@
 
                 // Load initial data
                 await loadStats();
+
+                // Load kurikulum history in background
+                setTimeout(() => KurikulumUI.loadKurikulumHistory(), 500);
 
                 // Show home page
                 document.getElementById('loadingState').style.display = 'none';

@@ -14,6 +14,7 @@ A Progressive Web App (PWA) designed for managing students (jamaah), classes (ke
 - [Database Schema](#database-schema)
 - [User Roles](#user-roles)
 - [Security Architecture](#security-architecture)
+- [Official Curriculum Import](#official-curriculum-import)
 - [Hierarchical Backup System](#hierarchical-backup-system)
 - [Academic Report Engine (Rapor)](#academic-report-engine-rapor)
 - [Getting Started](#getting-started)
@@ -106,6 +107,9 @@ PPG is built with an **offline-first architecture**, meaning:
 │   │   ├── cryptoUtils.js  # AES-256-GCM encryption
 │   │   ├── signatureManager.js # ECDSA digital signatures
 │   │   └── securityUI.js   # PIN screens, security status
+│   ├── /import             # Official data import modules
+│   │   ├── kurikulumImporter.js  # Curriculum package import
+│   │   └── kurikulumUI.js        # Import UI components
 │   ├── /akademik           # Academic report engine
 │   │   ├── kehadiranEngine.js  # Attendance calculation
 │   │   ├── materiEngine.js     # Subject mastery analysis
@@ -421,6 +425,174 @@ If a user forgets their PIN:
 3. **Secure Key Storage**: Keep backup encryption keys safe (offline)
 4. **Verify Signatures**: Always check backup signatures before import
 5. **Update Keys**: Rotate wilayah keys periodically
+
+---
+
+## Official Curriculum Import
+
+PPG supports importing official curriculum data from Supabase as signed JSON packages. This enables centralized curriculum management while maintaining offline-first operation.
+
+### Curriculum Package Format
+
+Official curriculum files follow the naming convention `kurikulum-ppg-vX.Y.json`:
+
+```json
+{
+    "meta": {
+        "version": "1.0",
+        "issued_by": "Pusat Kurikulum",
+        "issued_at": "2026-01-15",
+        "signature": "<base64-ecdsa-signature>",
+        "public_key_id": "kurikulum_pusat",
+        "public_key": { /* JWK format public key (optional) */ }
+    },
+    "data": {
+        "jenjang": [...],
+        "tingkat_jenjang": [...],
+        "kategori_materi": [...],
+        "materi": [...],
+        "sub_materi": [...],
+        "kurikulum_tingkat": [...]
+    }
+}
+```
+
+### Curriculum Tables
+
+| Table | Description |
+|-------|-------------|
+| `jenjang` | Education levels (e.g., Paud, TK, SD, SMP) |
+| `tingkat_jenjang` | Grade levels within each jenjang |
+| `kategori_materi` | Subject categories (e.g., Aqidah, Fiqih, Akhlaq) |
+| `materi` | Subjects/courses within categories |
+| `sub_materi` | Sub-topics within subjects |
+| `kurikulum_tingkat` | Links grades to subjects with hours allocation |
+| `kurikulum_version` | Import history and version tracking |
+
+### Import Process
+
+1. **Pick File**: User selects `kurikulum-ppg-vX.Y.json`
+2. **Validate Schema**: Verify required tables and fields
+3. **Check Version**: Reject if older than current installed version
+4. **Verify Signature**: ECDSA P-256 signature verification
+5. **Import Data**: UPSERT all records into database
+6. **Save History**: Record version and import statistics
+
+### Security Features
+
+- **ECDSA P-256 Signatures**: All packages signed by Kurikulum Authority
+- **Version Control**: Cannot import older versions
+- **Schema Validation**: Strict field validation before import
+- **Audit Trail**: Full import history with checksums
+
+### Supabase Export Helper
+
+To export curriculum data from Supabase, use this SQL query:
+
+```sql
+SELECT json_build_object(
+    'jenjang', (SELECT json_agg(j) FROM (
+        SELECT id, kode, nama, deskripsi, urutan, status
+        FROM jenjang ORDER BY urutan
+    ) j),
+    'tingkat_jenjang', (SELECT json_agg(t) FROM (
+        SELECT id, jenjang_id, kode, nama, deskripsi, urutan, usia_minimal, usia_maksimal, status
+        FROM tingkat_jenjang ORDER BY jenjang_id, urutan
+    ) t),
+    'kategori_materi', (SELECT json_agg(k) FROM (
+        SELECT id, kode, nama, deskripsi, warna, icon, urutan, status
+        FROM kategori_materi ORDER BY urutan
+    ) k),
+    'materi', (SELECT json_agg(m) FROM (
+        SELECT id, kategori_id, kode, nama, deskripsi, tujuan, sumber_rujukan, urutan, bobot, status
+        FROM materi ORDER BY kategori_id, urutan
+    ) m),
+    'sub_materi', (SELECT json_agg(s) FROM (
+        SELECT id, materi_id, kode, nama, deskripsi, kompetensi_dasar, indikator, urutan, estimasi_jam, status
+        FROM sub_materi ORDER BY materi_id, urutan
+    ) s),
+    'kurikulum_tingkat', (SELECT json_agg(kt) FROM (
+        SELECT id, tingkat_id, materi_id, semester, target_kompetensi, jam_per_minggu, jam_total, wajib, urutan, catatan, status
+        FROM kurikulum_tingkat ORDER BY tingkat_id, urutan
+    ) kt)
+) AS kurikulum;
+```
+
+### Signing the Curriculum Package
+
+1. **Generate Authority Key Pair** (one-time setup):
+
+```javascript
+import { generateAuthorityKeyPair } from './app/import/kurikulumImporter.js';
+
+// Generate ECDSA P-256 key pair
+const { publicKey, privateKey } = await generateAuthorityKeyPair();
+
+// Store publicKey in app distribution
+// Store privateKey securely offline (never share!)
+console.log('Public Key:', JSON.stringify(publicKey, null, 2));
+```
+
+2. **Sign the curriculum data**:
+
+```javascript
+import { signKurikulumData } from './app/import/kurikulumImporter.js';
+
+// Your curriculum data from Supabase
+const data = { jenjang: [...], tingkat_jenjang: [...], ... };
+
+// Import private key
+const privateKey = await crypto.subtle.importKey(
+    'jwk',
+    privateKeyJwk,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+);
+
+// Sign the data
+const signature = await signKurikulumData(data, privateKey);
+
+// Create final package
+const kurikulumPackage = {
+    meta: {
+        version: '1.0',
+        issued_by: 'Pusat Kurikulum',
+        issued_at: new Date().toISOString().split('T')[0],
+        signature: signature,
+        public_key_id: 'kurikulum_pusat',
+        public_key: publicKeyJwk  // Optional: embed for standalone verification
+    },
+    data: data
+};
+
+// Save as kurikulum-ppg-v1.0.json
+```
+
+3. **Distribute public key** to all PPG installations:
+
+```javascript
+import { storeKurikulumAuthorityKey } from './app/import/kurikulumImporter.js';
+
+// Run once during app setup or first import
+storeKurikulumAuthorityKey(publicKeyJwk);
+```
+
+### Usage in App
+
+1. Open PPG app
+2. Tap **Kurikulum** menu or **Import Kurikulum Pusat**
+3. Select `kurikulum-ppg-vX.Y.json` file
+4. Review metadata (version, issuer, date)
+5. Tap **Verifikasi & Import**
+6. View import summary
+
+### Curriculum Import Module
+
+| File | Purpose |
+|------|---------|
+| `/app/import/kurikulumImporter.js` | Core import logic, signature verification, database operations |
+| `/app/import/kurikulumUI.js` | Import modal UI, file picker, progress display |
 
 ---
 
