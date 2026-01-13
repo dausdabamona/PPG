@@ -26,7 +26,11 @@ const SCHEMA_FILES = [
     'kelas_mandiri',
     'catatan_pembinaan',
     'rekomendasi_pendidikan',
-    'backup_sync'  // Backup & sync tables (backup_log, merge_log, wilayah)
+    'backup_sync',  // Backup & sync tables (backup_log, merge_log, wilayah)
+    'rapor_periode',
+    'rapor_materi',
+    'rapor_akhlaq',
+    'rapor_rekomendasi'
 ];
 
 /**
@@ -220,6 +224,11 @@ async function resetMigrations() {
     // Drop all tables (in reverse dependency order)
     const tables = [
         '_migrations',
+        'rapor_rekomendasi_progress',
+        'rapor_rekomendasi',
+        'rapor_akhlaq',
+        'rapor_materi',
+        'rapor_periode',
         'merge_log',
         'backup_log',
         'wilayah',
@@ -723,6 +732,207 @@ CREATE INDEX IF NOT EXISTS idx_merge_log_table ON merge_log(table_name);
 CREATE INDEX IF NOT EXISTS idx_merge_log_action ON merge_log(action);
 CREATE INDEX IF NOT EXISTS idx_wilayah_level ON wilayah(level);
 CREATE INDEX IF NOT EXISTS idx_wilayah_parent ON wilayah(parent_id);
+`;
+
+SCHEMAS.rapor_periode = `
+CREATE TABLE IF NOT EXISTS rapor_periode (
+    id TEXT PRIMARY KEY NOT NULL,
+    jamaah_id TEXT NOT NULL,
+    nama_jamaah TEXT,
+    periode TEXT NOT NULL,
+    tahun_ajaran TEXT NOT NULL,
+    semester INTEGER CHECK(semester IN (1, 2)),
+    tanggal_mulai TEXT,
+    tanggal_selesai TEXT,
+    tingkat_id TEXT,
+    nama_tingkat TEXT,
+    total_hadir INTEGER DEFAULT 0,
+    total_tidak_hadir INTEGER DEFAULT 0,
+    total_izin INTEGER DEFAULT 0,
+    total_sakit INTEGER DEFAULT 0,
+    total_pertemuan INTEGER DEFAULT 0,
+    persentase_hadir REAL DEFAULT 0,
+    predikat_kehadiran TEXT CHECK(predikat_kehadiran IN (
+        'Sangat Baik', 'Baik', 'Cukup', 'Perlu Pembinaan'
+    )),
+    deskripsi_kehadiran TEXT,
+    predikat_keseluruhan TEXT CHECK(predikat_keseluruhan IN (
+        'Istimewa', 'Sangat Baik', 'Baik', 'Cukup', 'Perlu Pembinaan'
+    )),
+    deskripsi_keseluruhan TEXT,
+    status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'final', 'published')),
+    tanggal_finalisasi TEXT,
+    difinalisasi_oleh TEXT,
+    catatan_mubaligh TEXT,
+    catatan_pakar TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_modified TEXT NOT NULL DEFAULT (datetime('now')),
+    sync_version INTEGER NOT NULL DEFAULT 1,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    device_id TEXT,
+    UNIQUE(jamaah_id, periode)
+);
+CREATE INDEX IF NOT EXISTS idx_rapor_periode_jamaah ON rapor_periode(jamaah_id);
+CREATE INDEX IF NOT EXISTS idx_rapor_periode_periode ON rapor_periode(periode);
+CREATE INDEX IF NOT EXISTS idx_rapor_periode_tahun ON rapor_periode(tahun_ajaran);
+CREATE INDEX IF NOT EXISTS idx_rapor_periode_status ON rapor_periode(status);
+CREATE INDEX IF NOT EXISTS idx_rapor_periode_last_modified ON rapor_periode(last_modified);
+`;
+
+SCHEMAS.rapor_materi = `
+CREATE TABLE IF NOT EXISTS rapor_materi (
+    id TEXT PRIMARY KEY NOT NULL,
+    rapor_id TEXT NOT NULL,
+    materi_id TEXT,
+    kode_materi TEXT,
+    nama_materi TEXT NOT NULL,
+    kategori_materi TEXT,
+    nilai_tugas REAL,
+    nilai_ujian REAL,
+    nilai_praktik REAL,
+    nilai_hafalan REAL,
+    nilai_akhir REAL,
+    status TEXT NOT NULL DEFAULT 'proses' CHECK(status IN ('lulus', 'proses', 'tertinggal')),
+    predikat TEXT CHECK(predikat IN ('A', 'B', 'C', 'D', 'E')),
+    deskripsi TEXT,
+    kekuatan TEXT,
+    kelemahan TEXT,
+    rekomendasi TEXT,
+    target_kompetensi TEXT,
+    capaian_kompetensi TEXT,
+    persentase_capaian REAL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_modified TEXT NOT NULL DEFAULT (datetime('now')),
+    sync_version INTEGER NOT NULL DEFAULT 1,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    device_id TEXT,
+    UNIQUE(rapor_id, materi_id)
+);
+CREATE INDEX IF NOT EXISTS idx_rapor_materi_rapor ON rapor_materi(rapor_id);
+CREATE INDEX IF NOT EXISTS idx_rapor_materi_materi ON rapor_materi(materi_id);
+CREATE INDEX IF NOT EXISTS idx_rapor_materi_status ON rapor_materi(status);
+CREATE INDEX IF NOT EXISTS idx_rapor_materi_predikat ON rapor_materi(predikat);
+CREATE INDEX IF NOT EXISTS idx_rapor_materi_last_modified ON rapor_materi(last_modified);
+`;
+
+SCHEMAS.rapor_akhlaq = `
+CREATE TABLE IF NOT EXISTS rapor_akhlaq (
+    id TEXT PRIMARY KEY NOT NULL,
+    rapor_id TEXT NOT NULL,
+    kedisiplinan_nilai INTEGER CHECK(kedisiplinan_nilai BETWEEN 1 AND 4),
+    kedisiplinan_predikat TEXT,
+    kedisiplinan_deskripsi TEXT,
+    adab_nilai INTEGER CHECK(adab_nilai BETWEEN 1 AND 4),
+    adab_predikat TEXT,
+    adab_deskripsi TEXT,
+    kemandirian_nilai INTEGER CHECK(kemandirian_nilai BETWEEN 1 AND 4),
+    kemandirian_predikat TEXT,
+    kemandirian_deskripsi TEXT,
+    kebersihan_nilai INTEGER CHECK(kebersihan_nilai BETWEEN 1 AND 4),
+    kebersihan_predikat TEXT,
+    kebersihan_deskripsi TEXT,
+    tanggung_jawab_nilai INTEGER CHECK(tanggung_jawab_nilai BETWEEN 1 AND 4),
+    tanggung_jawab_predikat TEXT,
+    tanggung_jawab_deskripsi TEXT,
+    kejujuran_nilai INTEGER CHECK(kejujuran_nilai BETWEEN 1 AND 4),
+    kejujuran_predikat TEXT,
+    kejujuran_deskripsi TEXT,
+    kepedulian_nilai INTEGER CHECK(kepedulian_nilai BETWEEN 1 AND 4),
+    kepedulian_predikat TEXT,
+    kepedulian_deskripsi TEXT,
+    kerjasama_nilai INTEGER CHECK(kerjasama_nilai BETWEEN 1 AND 4),
+    kerjasama_predikat TEXT,
+    kerjasama_deskripsi TEXT,
+    nilai_rata_rata REAL,
+    predikat_keseluruhan TEXT CHECK(predikat_keseluruhan IN (
+        'Sangat Baik', 'Baik', 'Cukup', 'Perlu Bimbingan'
+    )),
+    deskripsi_keseluruhan TEXT,
+    kekuatan_karakter TEXT,
+    area_pengembangan TEXT,
+    perkembangan TEXT CHECK(perkembangan IN ('meningkat', 'stabil', 'menurun', 'baru')),
+    perkembangan_catatan TEXT,
+    catatan_pakar TEXT,
+    tanggal_evaluasi_pakar TEXT,
+    nama_pakar TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_modified TEXT NOT NULL DEFAULT (datetime('now')),
+    sync_version INTEGER NOT NULL DEFAULT 1,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    device_id TEXT,
+    UNIQUE(rapor_id)
+);
+CREATE INDEX IF NOT EXISTS idx_rapor_akhlaq_rapor ON rapor_akhlaq(rapor_id);
+CREATE INDEX IF NOT EXISTS idx_rapor_akhlaq_predikat ON rapor_akhlaq(predikat_keseluruhan);
+CREATE INDEX IF NOT EXISTS idx_rapor_akhlaq_perkembangan ON rapor_akhlaq(perkembangan);
+CREATE INDEX IF NOT EXISTS idx_rapor_akhlaq_last_modified ON rapor_akhlaq(last_modified);
+`;
+
+SCHEMAS.rapor_rekomendasi = `
+CREATE TABLE IF NOT EXISTS rapor_rekomendasi (
+    id TEXT PRIMARY KEY NOT NULL,
+    rapor_id TEXT NOT NULL,
+    untuk_peran TEXT NOT NULL CHECK(untuk_peran IN (
+        'orang_tua', 'mubaligh', 'pakar', 'jamaah', 'semua'
+    )),
+    kategori TEXT NOT NULL CHECK(kategori IN (
+        'kehadiran', 'akademik', 'akhlaq', 'kelas_mandiri', 'kesehatan', 'umum'
+    )),
+    judul TEXT NOT NULL,
+    rekomendasi_text TEXT NOT NULL,
+    alasan TEXT,
+    langkah_tindakan TEXT,
+    target_tindak_lanjut TEXT,
+    durasi_target TEXT,
+    tanggal_target TEXT,
+    prioritas TEXT DEFAULT 'normal' CHECK(prioritas IN ('rendah', 'normal', 'tinggi', 'urgent')),
+    status_tindak_lanjut TEXT DEFAULT 'pending' CHECK(status_tindak_lanjut IN (
+        'pending', 'in_progress', 'selesai', 'dibatalkan'
+    )),
+    tanggal_mulai TEXT,
+    tanggal_selesai TEXT,
+    catatan_progress TEXT,
+    sumber TEXT CHECK(sumber IN ('sistem', 'mubaligh', 'pakar', 'manual')),
+    rule_id TEXT,
+    dibuat_oleh TEXT,
+    nama_pembuat TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_modified TEXT NOT NULL DEFAULT (datetime('now')),
+    sync_version INTEGER NOT NULL DEFAULT 1,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    device_id TEXT
+);
+CREATE TABLE IF NOT EXISTS rapor_rekomendasi_progress (
+    id TEXT PRIMARY KEY NOT NULL,
+    rekomendasi_id TEXT NOT NULL,
+    tanggal TEXT NOT NULL,
+    deskripsi TEXT NOT NULL,
+    pencapaian TEXT,
+    dilaporkan_oleh TEXT,
+    nama_pelapor TEXT,
+    peran_pelapor TEXT,
+    tingkat_kemajuan TEXT CHECK(tingkat_kemajuan IN (
+        'belum_mulai', 'awal', 'pertengahan', 'hampir_selesai', 'selesai'
+    )),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_modified TEXT NOT NULL DEFAULT (datetime('now')),
+    sync_version INTEGER NOT NULL DEFAULT 1,
+    is_deleted INTEGER NOT NULL DEFAULT 0,
+    device_id TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_rapor ON rapor_rekomendasi(rapor_id);
+CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_peran ON rapor_rekomendasi(untuk_peran);
+CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_kategori ON rapor_rekomendasi(kategori);
+CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_prioritas ON rapor_rekomendasi(prioritas);
+CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_status ON rapor_rekomendasi(status_tindak_lanjut);
+CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_last_modified ON rapor_rekomendasi(last_modified);
+CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_progress_rek ON rapor_rekomendasi_progress(rekomendasi_id);
+CREATE INDEX IF NOT EXISTS idx_rapor_rekomendasi_progress_tanggal ON rapor_rekomendasi_progress(tanggal);
 `;
 
 // =============================================================================

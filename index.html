@@ -576,6 +576,153 @@
                 grid-template-columns: repeat(3, 1fr);
             }
         }
+
+        /* =================================================================
+           Rapor Styles
+           ================================================================= */
+        .rapor-section {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .rapor-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .rapor-section-title {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+
+        .rapor-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .rapor-stat-item {
+            background: var(--secondary-color);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+        }
+
+        .rapor-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .rapor-stat-value {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .rapor-predikat {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .predikat-istimewa { background: #d4edda; color: #155724; }
+        .predikat-sangat-baik { background: #cce5ff; color: #004085; }
+        .predikat-baik { background: #d1ecf1; color: #0c5460; }
+        .predikat-cukup { background: #fff3cd; color: #856404; }
+        .predikat-perlu-pembinaan { background: #f8d7da; color: #721c24; }
+
+        .rapor-narrative {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-color);
+            white-space: pre-line;
+        }
+
+        .rapor-rekomendasi-item {
+            background: var(--secondary-color);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+
+        .rapor-rekomendasi-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .rapor-rekomendasi-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .rapor-rekomendasi-text {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .rapor-priority-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .priority-urgent { background: #dc3545; color: white; }
+        .priority-tinggi { background: #fd7e14; color: white; }
+        .priority-normal { background: #6c757d; color: white; }
+        .priority-rendah { background: #28a745; color: white; }
+
+        .rapor-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: var(--secondary-color);
+            border-radius: var(--radius-sm);
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+
+        .rapor-list-item:hover {
+            background: var(--border-color);
+        }
+
+        .rapor-list-info {
+            flex: 1;
+        }
+
+        .rapor-list-periode {
+            font-weight: 600;
+        }
+
+        .rapor-list-date {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .materi-table {
+            width: 100%;
+            font-size: 0.85rem;
+            border-collapse: collapse;
+        }
+
+        .materi-table th,
+        .materi-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .materi-table th {
+            background: var(--secondary-color);
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -667,6 +814,11 @@
                             <span class="menu-label">Catatan</span>
                             <span class="menu-sublabel">Pembinaan</span>
                         </a>
+                        <a href="#rapor" class="menu-item" onclick="navigateTo('rapor')">
+                            <span class="menu-icon">&#128220;</span>
+                            <span class="menu-label">Rapor</span>
+                            <span class="menu-sublabel">Laporan akademik</span>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -724,6 +876,86 @@
                     <button class="btn btn-primary btn-block" onclick="testAddJamaah()">
                         + Tambah Jamaah (Test)
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rapor Page -->
+        <div class="page" id="raporPage">
+            <div class="card">
+                <div class="card-header">
+                    <span>&#128220;</span>
+                    <span>Rapor Akademik</span>
+                </div>
+                <div class="card-body">
+                    <div class="info-box">
+                        <strong>Model C:</strong> Numerik + Predikat + Narasi + Rekomendasi<br>
+                        <small>Laporan komprehensif perkembangan jamaah</small>
+                    </div>
+
+                    <!-- Generate Rapor Form -->
+                    <div class="form-group">
+                        <label class="form-label">Jamaah</label>
+                        <select class="form-select" id="raporJamaah">
+                            <option value="">-- Pilih Jamaah --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Periode</label>
+                        <input type="text" class="form-input" id="raporPeriode" placeholder="Contoh: 2024-S1">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tahun Ajaran</label>
+                        <input type="text" class="form-input" id="raporTahunAjaran" placeholder="Contoh: 2024/2025">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Semester</label>
+                        <select class="form-select" id="raporSemester">
+                            <option value="1">1 - Ganjil</option>
+                            <option value="2">2 - Genap</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Mulai</label>
+                        <input type="date" class="form-input" id="raporTglMulai">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tanggal Selesai</label>
+                        <input type="date" class="form-input" id="raporTglSelesai">
+                    </div>
+
+                    <button class="btn btn-primary btn-block" onclick="generateRapor()">
+                        <span>&#128220;</span>
+                        Generate Rapor
+                    </button>
+                </div>
+            </div>
+
+            <!-- Rapor Result -->
+            <div class="card" id="raporResultCard" style="display: none;">
+                <div class="card-header">
+                    <span>&#128203;</span>
+                    <span>Hasil Rapor</span>
+                </div>
+                <div class="card-body" id="raporResult">
+                </div>
+            </div>
+
+            <!-- Existing Rapor List -->
+            <div class="card">
+                <div class="card-header">
+                    <span>&#128196;</span>
+                    <span>Riwayat Rapor</span>
+                </div>
+                <div class="card-body" id="raporList">
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        Pilih jamaah untuk melihat riwayat rapor
+                    </p>
                 </div>
             </div>
         </div>
@@ -850,6 +1082,7 @@
         import BackupExport from './app/backup/export.js';
         import BackupImport from './app/backup/import.js';
         import Hierarchy from './app/backup/hierarchy.js';
+        import RaporEngine from './app/akademik/raporEngine.js';
 
         // Make available globally for onclick handlers
         window.DB = DB;
@@ -857,6 +1090,7 @@
         window.BackupExport = BackupExport;
         window.BackupImport = BackupImport;
         window.Hierarchy = Hierarchy;
+        window.RaporEngine = RaporEngine;
 
         // =================================================================
         // App Initialization
@@ -1193,6 +1427,295 @@
                 previewImportFile();
             }
         });
+
+        // =================================================================
+        // Rapor Functions
+        // =================================================================
+        async function loadJamaahForRapor() {
+            try {
+                const jamaahList = await JamaahService.getAll();
+                const select = document.getElementById('raporJamaah');
+                select.innerHTML = '<option value="">-- Pilih Jamaah --</option>';
+
+                jamaahList.forEach(j => {
+                    const option = document.createElement('option');
+                    option.value = j.id;
+                    option.textContent = j.nama_lengkap || j.nama_panggilan;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('[Rapor] Failed to load jamaah:', error);
+            }
+        }
+
+        // Load rapor list when jamaah selected
+        document.getElementById('raporJamaah')?.addEventListener('change', async function() {
+            const jamaahId = this.value;
+            const raporListDiv = document.getElementById('raporList');
+
+            if (!jamaahId) {
+                raporListDiv.innerHTML = `
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        Pilih jamaah untuk melihat riwayat rapor
+                    </p>
+                `;
+                return;
+            }
+
+            try {
+                const raporList = await RaporEngine.getRaporListByJamaah(jamaahId);
+
+                if (raporList.length === 0) {
+                    raporListDiv.innerHTML = `
+                        <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                            Belum ada rapor untuk jamaah ini
+                        </p>
+                    `;
+                    return;
+                }
+
+                raporListDiv.innerHTML = raporList.map(r => `
+                    <div class="rapor-list-item" onclick="viewRapor('${r.id}')">
+                        <div class="rapor-list-info">
+                            <div class="rapor-list-periode">${r.periode} - ${r.tahun_ajaran}</div>
+                            <div class="rapor-list-date">Semester ${r.semester} | ${new Date(r.created_at).toLocaleDateString('id-ID')}</div>
+                        </div>
+                        <span class="rapor-predikat ${getPredikatClass(r.predikat_keseluruhan)}">${r.predikat_keseluruhan || 'Draft'}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('[Rapor] Failed to load rapor list:', error);
+                raporListDiv.innerHTML = `
+                    <div class="error-box">Error: ${error.message}</div>
+                `;
+            }
+        });
+
+        window.generateRapor = async function() {
+            const jamaahId = document.getElementById('raporJamaah').value;
+            const periode = document.getElementById('raporPeriode').value;
+            const tahunAjaran = document.getElementById('raporTahunAjaran').value;
+            const semester = parseInt(document.getElementById('raporSemester').value);
+            const tanggalMulai = document.getElementById('raporTglMulai').value;
+            const tanggalSelesai = document.getElementById('raporTglSelesai').value;
+
+            if (!jamaahId || !periode || !tahunAjaran || !tanggalMulai || !tanggalSelesai) {
+                alert('Mohon lengkapi semua field yang diperlukan');
+                return;
+            }
+
+            const resultCard = document.getElementById('raporResultCard');
+            const resultDiv = document.getElementById('raporResult');
+
+            resultCard.style.display = 'block';
+            resultDiv.innerHTML = '<div class="info-box">Generating rapor...</div>';
+
+            try {
+                const rapor = await RaporEngine.generateRapor(jamaahId, {
+                    periode,
+                    tahunAjaran,
+                    semester,
+                    tanggalMulai,
+                    tanggalSelesai
+                }, DB.getDeviceId());
+
+                displayRapor(rapor, resultDiv);
+
+                // Refresh rapor list
+                document.getElementById('raporJamaah').dispatchEvent(new Event('change'));
+            } catch (error) {
+                console.error('[Rapor] Generation failed:', error);
+                resultDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        };
+
+        window.viewRapor = async function(raporId) {
+            const resultCard = document.getElementById('raporResultCard');
+            const resultDiv = document.getElementById('raporResult');
+
+            resultCard.style.display = 'block';
+            resultDiv.innerHTML = '<div class="info-box">Memuat rapor...</div>';
+
+            try {
+                const rapor = await RaporEngine.getRaporById(raporId);
+                displayRapor(rapor, resultDiv);
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error-box">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        };
+
+        function displayRapor(rapor, container) {
+            const kehadiran = rapor.kehadiran || {};
+            const materi = rapor.materi || {};
+            const akhlaq = rapor.akhlaq || {};
+            const rekomendasi = rapor.rekomendasi || [];
+
+            container.innerHTML = `
+                <!-- Header -->
+                <div class="rapor-section">
+                    <h3 style="text-align: center; margin-bottom: 8px;">${rapor.nama_jamaah || rapor.namaJamaah}</h3>
+                    <p style="text-align: center; color: var(--text-muted);">
+                        Periode ${rapor.periode} | Semester ${rapor.semester} | ${rapor.tahun_ajaran}
+                    </p>
+                    <div style="text-align: center; margin-top: 12px;">
+                        <span class="rapor-predikat ${getPredikatClass(rapor.predikat_keseluruhan || rapor.predikatKeseluruhan)}">
+                            ${rapor.predikat_keseluruhan || rapor.predikatKeseluruhan}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Kehadiran -->
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Kehadiran</div>
+                    <div class="rapor-stat-grid">
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Hadir</div>
+                            <div class="rapor-stat-value">${kehadiran.totalHadir || rapor.total_hadir || 0}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Total Pertemuan</div>
+                            <div class="rapor-stat-value">${kehadiran.totalPertemuan || rapor.total_pertemuan || 0}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Persentase</div>
+                            <div class="rapor-stat-value">${(kehadiran.persentase || rapor.persentase_hadir || 0).toFixed(1)}%</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Predikat</div>
+                            <div class="rapor-stat-value">${kehadiran.predikat || rapor.predikat_kehadiran || '-'}</div>
+                        </div>
+                    </div>
+                    <div class="rapor-narrative">${kehadiran.deskripsi || rapor.deskripsi_kehadiran || ''}</div>
+                </div>
+
+                <!-- Akademik -->
+                ${materi.detailMateri ? `
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Akademik</div>
+                    <div class="rapor-stat-grid">
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Rata-rata Nilai</div>
+                            <div class="rapor-stat-value">${materi.rataRataNilai?.toFixed(1) || '-'}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Predikat</div>
+                            <div class="rapor-stat-value">${materi.predikatKeseluruhan || '-'}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Lulus</div>
+                            <div class="rapor-stat-value">${materi.materiLulus || 0}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Tertinggal</div>
+                            <div class="rapor-stat-value">${materi.materiTertinggal || 0}</div>
+                        </div>
+                    </div>
+                    ${materi.detailMateri.length > 0 ? `
+                    <table class="materi-table">
+                        <thead>
+                            <tr>
+                                <th>Materi</th>
+                                <th>Nilai</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${materi.detailMateri.map(m => `
+                            <tr>
+                                <td>${m.namaMateri}</td>
+                                <td>${m.nilaiAkhir?.toFixed(1) || '-'} (${m.predikat || '-'})</td>
+                                <td><span class="status-badge ${getStatusClass(m.status)}">${m.status}</span></td>
+                            </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ` : '<p style="color: var(--text-muted);">Tidak ada data materi</p>'}
+                </div>
+                ` : ''}
+
+                <!-- Akhlaq -->
+                ${akhlaq.dimensi || akhlaq.predikat_keseluruhan ? `
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Akhlaq</div>
+                    <div class="rapor-stat-grid">
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Rata-rata</div>
+                            <div class="rapor-stat-value">${akhlaq.nilaiRataRata?.toFixed(2) || akhlaq.nilai_rata_rata?.toFixed(2) || '-'}</div>
+                        </div>
+                        <div class="rapor-stat-item">
+                            <div class="rapor-stat-label">Predikat</div>
+                            <div class="rapor-stat-value">${akhlaq.predikatKeseluruhan || akhlaq.predikat_keseluruhan || '-'}</div>
+                        </div>
+                    </div>
+                    <div class="rapor-narrative">${akhlaq.deskripsiKeseluruhan || akhlaq.deskripsi_keseluruhan || ''}</div>
+                    ${akhlaq.kekuatanKarakter?.length > 0 || akhlaq.kekuatan_karakter ? `
+                    <p style="margin-top: 8px;"><strong>Kekuatan:</strong> ${Array.isArray(akhlaq.kekuatanKarakter) ? akhlaq.kekuatanKarakter.join(', ') : akhlaq.kekuatan_karakter || '-'}</p>
+                    ` : ''}
+                    ${akhlaq.areaPengembangan?.length > 0 || akhlaq.area_pengembangan ? `
+                    <p><strong>Area Pengembangan:</strong> ${Array.isArray(akhlaq.areaPengembangan) ? akhlaq.areaPengembangan.join(', ') : akhlaq.area_pengembangan || '-'}</p>
+                    ` : ''}
+                </div>
+                ` : ''}
+
+                <!-- Rekomendasi -->
+                ${rekomendasi.length > 0 ? `
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Rekomendasi</div>
+                    ${rekomendasi.slice(0, 5).map(r => `
+                    <div class="rapor-rekomendasi-item">
+                        <div class="rapor-rekomendasi-title">
+                            ${r.judul}
+                            <span class="rapor-priority-badge priority-${r.prioritas}">${r.prioritas}</span>
+                        </div>
+                        <div class="rapor-rekomendasi-text">${r.rekomendasi_text}</div>
+                    </div>
+                    `).join('')}
+                </div>
+                ` : ''}
+
+                <!-- Deskripsi Keseluruhan -->
+                <div class="rapor-section">
+                    <div class="rapor-section-title">Kesimpulan</div>
+                    <div class="rapor-narrative">${rapor.deskripsi_keseluruhan || rapor.deskripsiKeseluruhan || ''}</div>
+                </div>
+            `;
+        }
+
+        function getPredikatClass(predikat) {
+            if (!predikat) return '';
+            const p = predikat.toLowerCase().replace(/\s+/g, '-');
+            if (p.includes('istimewa')) return 'predikat-istimewa';
+            if (p.includes('sangat')) return 'predikat-sangat-baik';
+            if (p.includes('baik')) return 'predikat-baik';
+            if (p.includes('cukup')) return 'predikat-cukup';
+            return 'predikat-perlu-pembinaan';
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'lulus': return 'status-success';
+                case 'proses': return 'status-warning';
+                case 'tertinggal': return 'status-danger';
+                default: return 'status-info';
+            }
+        }
+
+        // Load jamaah when rapor page is shown
+        const origNavigateTo = window.navigateTo;
+        window.navigateTo = function(page) {
+            origNavigateTo(page);
+            if (page === 'rapor') {
+                loadJamaahForRapor();
+            }
+        };
 
         // =================================================================
         // Start App

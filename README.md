@@ -14,6 +14,7 @@ A Progressive Web App (PWA) designed for managing students (jamaah), classes (ke
 - [Database Schema](#database-schema)
 - [User Roles](#user-roles)
 - [Hierarchical Backup System](#hierarchical-backup-system)
+- [Academic Report Engine (Rapor)](#academic-report-engine-rapor)
 - [Getting Started](#getting-started)
 - [Development Roadmap](#development-roadmap)
 - [Offline-First Design](#offline-first-design)
@@ -96,6 +97,12 @@ PPG is built with an **offline-first architecture**, meaning:
 │   │   ├── import.js   # Import and merge
 │   │   ├── hierarchy.js # Level validation
 │   │   └── backup.js   # Legacy backup utilities
+│   ├── /akademik       # Academic report engine
+│   │   ├── kehadiranEngine.js  # Attendance calculation
+│   │   ├── materiEngine.js     # Subject mastery analysis
+│   │   ├── akhlaqEngine.js     # Character assessment
+│   │   ├── rekomendasiEngine.js # Rule-based recommendations
+│   │   └── raporEngine.js      # Main orchestrator
 │   └── /roles          # Role-based access control
 │       └── roles.js
 ├── /android            # Capacitor Android project (future)
@@ -107,7 +114,11 @@ PPG is built with an **offline-first architecture**, meaning:
 │   ├── kelas_mandiri.sql
 │   ├── catatan_pembinaan.sql
 │   ├── rekomendasi_pendidikan.sql
-│   └── backup_sync.sql # Backup & merge logging tables
+│   ├── backup_sync.sql # Backup & merge logging tables
+│   ├── rapor_periode.sql    # Main rapor with attendance summary
+│   ├── rapor_materi.sql     # Subject mastery assessment
+│   ├── rapor_akhlaq.sql     # Character assessment
+│   └── rapor_rekomendasi.sql # Rule-based recommendations
 ├── index.html          # Main PWA entry point
 └── README.md
 ```
@@ -149,6 +160,11 @@ device_id TEXT                                        -- Origin device tracking
 | `backup_log` | Backup export/import history | - |
 | `merge_log` | Record merge operations & conflicts | `backup_log` |
 | `wilayah` | Regional/organizational hierarchy | - |
+| `rapor_periode` | Academic report periods | `jamaah` |
+| `rapor_materi` | Subject assessment per rapor | `rapor_periode` |
+| `rapor_akhlaq` | Character assessment per rapor | `rapor_periode` |
+| `rapor_rekomendasi` | Auto-generated recommendations | `rapor_periode` |
+| `rapor_rekomendasi_progress` | Recommendation follow-up | `rapor_rekomendasi` |
 
 ---
 
@@ -365,6 +381,161 @@ const importResult = await BackupImport.importBackup(file, {
 
 ---
 
+## Academic Report Engine (Rapor)
+
+PPG includes a comprehensive academic report engine that generates student reports using **Model C: Numeric + Predicate + Narrative + Recommendation**.
+
+### Report Components
+
+The rapor system combines four key aspects:
+
+| Component | Engine | Description |
+|-----------|--------|-------------|
+| **Kehadiran** | `kehadiranEngine.js` | Attendance analysis with percentage and predicate |
+| **Akademik** | `materiEngine.js` | Subject mastery with status (lulus/proses/tertinggal) |
+| **Akhlaq** | `akhlaqEngine.js` | Character assessment across 8 dimensions |
+| **Rekomendasi** | `rekomendasiEngine.js` | Rule-based recommendations by role |
+
+### Attendance Predicates
+
+| Percentage | Predicate |
+|------------|-----------|
+| >= 90% | Sangat Baik |
+| >= 80% | Baik |
+| >= 70% | Cukup |
+| < 70% | Perlu Pembinaan |
+
+### Academic Predicates
+
+| Score | Predicate | Description |
+|-------|-----------|-------------|
+| 90-100 | A | Istimewa |
+| 80-89 | B | Sangat Baik |
+| 70-79 | C | Baik |
+| 60-69 | D | Cukup |
+| < 60 | E | Perlu Bimbingan |
+
+### Subject Status
+
+| Status | Criteria | Description |
+|--------|----------|-------------|
+| `lulus` | >= 70 | Mastered/Passed |
+| `proses` | >= 50 | In Progress |
+| `tertinggal` | < 50 | Behind/Needs Catch-up |
+
+### Character Dimensions (Akhlaq)
+
+The character assessment evaluates 8 dimensions on a 1-4 scale:
+
+| Dimension | Indonesian | English |
+|-----------|------------|---------|
+| Kedisiplinan | Disiplin | Discipline |
+| Adab | Sopan Santun | Manners/Etiquette |
+| Kemandirian | Mandiri | Independence |
+| Kebersihan | Bersih | Cleanliness |
+| Tanggung Jawab | Bertanggung jawab | Responsibility |
+| Kejujuran | Jujur | Honesty |
+| Kepedulian | Peduli | Care/Empathy |
+| Kerjasama | Bekerjasama | Cooperation |
+
+**Scoring:**
+- 4: Sangat Baik
+- 3: Baik
+- 2: Cukup
+- 1: Perlu Bimbingan
+
+### Rule-Based Recommendations
+
+The recommendation engine automatically generates targeted recommendations based on configurable rules:
+
+```javascript
+// Example rules
+const RULES = [
+  {
+    id: 'kehadiran_rendah',
+    kondisi: (data) => data.kehadiran.persentase < 70,
+    prioritas: 'tinggi',
+    targetPeran: ['orang_tua', 'mubaligh'],
+    // ... generates specific recommendation
+  },
+  {
+    id: 'materi_tertinggal',
+    kondisi: (data) => data.materi.materiTertinggal > 0,
+    prioritas: 'tinggi',
+    // ...
+  }
+];
+```
+
+**Recommendation Categories:**
+- `kehadiran` - Attendance-related
+- `akademik` - Academic performance
+- `akhlaq` - Character development
+- `kelas_mandiri` - Parent self-learning
+- `kesehatan` - Health/wellbeing
+
+**Priority Levels:**
+- `urgent` - Immediate attention required
+- `tinggi` - High priority
+- `normal` - Standard priority
+- `rendah` - Low priority (appreciation)
+
+**Target Roles:**
+- `orang_tua` - Parents
+- `mubaligh` - Teachers
+- `pakar` - Experts
+- `jamaah` - Students
+- `semua` - Everyone
+
+### Usage Example
+
+```javascript
+import RaporEngine from './app/akademik/raporEngine.js';
+
+// Generate a complete rapor
+const rapor = await RaporEngine.generateRapor(jamaahId, {
+    periode: '2024-S1',
+    tahunAjaran: '2024/2025',
+    semester: 1,
+    tanggalMulai: '2024-01-15',
+    tanggalSelesai: '2024-06-30'
+}, deviceId);
+
+// rapor contains:
+// - Attendance summary and predicate
+// - Subject mastery breakdown
+// - Character assessment scores
+// - Auto-generated recommendations
+// - Overall predicate and narrative
+
+// View existing rapor
+const existingRapor = await RaporEngine.getRaporById(raporId);
+
+// Finalize rapor
+await RaporEngine.finalizeRapor(raporId, 'mubaligh_name');
+
+// Publish to parents
+await RaporEngine.publishRapor(raporId);
+```
+
+### Rapor Workflow
+
+```
+┌────────────────┐
+│  Draft Status  │  Initial generation
+└───────┬────────┘
+        │ Mubaligh reviews
+┌───────▼────────┐
+│  Final Status  │  Locked for editing
+└───────┬────────┘
+        │ Ready for parents
+┌───────▼────────┐
+│   Published    │  Visible to orang_tua
+└────────────────┘
+```
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -453,7 +624,18 @@ await KehadiranService.bulkRecordAttendance(session.id, [
 - [x] Backup and merge logging tables
 - [x] UI buttons for export/import
 
-### Phase 3: Encryption & Security (Planned)
+### Phase 3: Academic Report Engine (Completed)
+
+- [x] Rapor schema design (rapor_periode, rapor_materi, rapor_akhlaq, rapor_rekomendasi)
+- [x] Attendance calculation engine (kehadiranEngine.js)
+- [x] Subject mastery analysis (materiEngine.js)
+- [x] Character assessment engine (akhlaqEngine.js)
+- [x] Rule-based recommendation engine (rekomendasiEngine.js)
+- [x] Main orchestrator (raporEngine.js)
+- [x] UI for rapor generation and display
+- [x] Model C: Numeric + Predicate + Narrative + Recommendation
+
+### Phase 4: Encryption & Security (Planned)
 
 - [ ] SQLCipher integration for database encryption
 - [ ] PIN/password protection for app access
@@ -461,7 +643,7 @@ await KehadiranService.bulkRecordAttendance(session.id, [
 - [ ] Biometric authentication (Capacitor)
 - [ ] Encrypted backup files
 
-### Phase 4: Enhanced Features (Planned)
+### Phase 5: Enhanced Features (Planned)
 
 - [ ] Complete UI for all modules
 - [ ] Automatic backup scheduling
@@ -469,7 +651,7 @@ await KehadiranService.bulkRecordAttendance(session.id, [
 - [ ] Conflict resolution UI
 - [ ] Reports and analytics
 
-### Phase 5: Android APK (Planned)
+### Phase 6: Android APK (Planned)
 
 - [ ] Capacitor project setup
 - [ ] Native SQLite integration
