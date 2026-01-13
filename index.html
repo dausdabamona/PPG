@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1a5f2a">
+    <meta name="description" content="PPG - Sistem Manajemen Pengajian Offline-First">
+
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PPG">
+
+    <title>PPG - Pengajian Progress Guru</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+
+    <style>
+        /* =================================================================
+           CSS Variables & Reset
+           ================================================================= */
+        :root {
+            --primary-color: #1a5f2a;
+            --primary-light: #2d8a3e;
+            --primary-dark: #0d3d18;
+            --secondary-color: #f5f5f5;
+            --accent-color: #ffc107;
+            --text-color: #333;
+            --text-light: #666;
+            --text-muted: #999;
+            --border-color: #ddd;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --info-color: #17a2b8;
+            --white: #fff;
+            --shadow: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-lg: 0 4px 8px rgba(0,0,0,0.15);
+            --radius: 8px;
+            --radius-sm: 4px;
+            --header-height: 56px;
+            --nav-height: 60px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* =================================================================
+           Header
+           ================================================================= */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+            color: var(--white);
+            padding: 0 16px;
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .header-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: var(--white);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .header-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* =================================================================
+           Main Content
+           ================================================================= */
+        .main {
+            flex: 1;
+            padding: calc(var(--header-height) + 16px) 16px calc(var(--nav-height) + 16px);
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* =================================================================
+           Cards
+           ================================================================= */
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-body {
+            padding: 16px;
+        }
+
+        /* =================================================================
+           Menu Grid
+           ================================================================= */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .menu-item {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 20px 16px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--text-color);
+            box-shadow: var(--shadow);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .menu-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .menu-item:active {
+            transform: translateY(0);
+        }
+
+        .menu-icon {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .menu-label {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .menu-sublabel {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* =================================================================
+           Stats Cards
+           ================================================================= */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 16px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .stat-number {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* =================================================================
+           Bottom Navigation
+           ================================================================= */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--white);
+            height: var(--nav-height);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-muted);
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            transition: color 0.2s;
+        }
+
+        .nav-item.active {
+            color: var(--primary-color);
+        }
+
+        .nav-item:hover {
+            color: var(--primary-color);
+        }
+
+        .nav-icon {
+            font-size: 1.5rem;
+            margin-bottom: 2px;
+        }
+
+        .nav-label {
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        /* =================================================================
+           Loading & Status
+           ================================================================= */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-success { background: #d4edda; color: #155724; }
+        .status-warning { background: #fff3cd; color: #856404; }
+        .status-danger { background: #f8d7da; color: #721c24; }
+        .status-info { background: #d1ecf1; color: #0c5460; }
+
+        /* =================================================================
+           Buttons
+           ================================================================= */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-light);
+        }
+
+        .btn-block {
+            display: flex;
+            width: 100%;
+        }
+
+        /* =================================================================
+           Welcome Section
+           ================================================================= */
+        .welcome {
+            text-align: center;
+            padding: 24px 16px;
+            margin-bottom: 8px;
+        }
+
+        .welcome-greeting {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .welcome-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-top: 4px;
+        }
+
+        .welcome-role {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 12px;
+            background: var(--primary-color);
+            color: var(--white);
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        /* =================================================================
+           Offline Indicator
+           ================================================================= */
+        .offline-indicator {
+            display: none;
+            position: fixed;
+            top: var(--header-height);
+            left: 0;
+            right: 0;
+            background: var(--warning-color);
+            color: #333;
+            text-align: center;
+            padding: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            z-index: 99;
+        }
+
+        .offline-indicator.show {
+            display: block;
+        }
+
+        /* =================================================================
+           Page Transitions
+           ================================================================= */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* =================================================================
+           Responsive
+           ================================================================= */
+        @media (min-width: 768px) {
+            .menu-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1>PPG</h1>
+        <div class="header-actions">
+            <button class="header-btn" id="btnSync" title="Sinkronisasi">
+                <span>&#x21bb;</span>
+            </button>
+            <button class="header-btn" id="btnSettings" title="Pengaturan">
+                <span>&#x2699;</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Offline Indicator -->
+    <div class="offline-indicator" id="offlineIndicator">
+        Mode Offline - Data tersimpan di perangkat
+    </div>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Loading State -->
+        <div class="loading" id="loadingState">
+            <div class="spinner"></div>
+            <p>Memuat database...</p>
+        </div>
+
+        <!-- Home Page -->
+        <div class="page" id="homePage">
+            <!-- Welcome Section -->
+            <div class="welcome">
+                <p class="welcome-greeting">Assalamu'alaikum,</p>
+                <p class="welcome-name" id="userName">Pengguna</p>
+                <span class="welcome-role" id="userRole">Mubaligh</span>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-number" id="statJamaah">0</div>
+                    <div class="stat-label">Jamaah</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statKelas">0</div>
+                    <div class="stat-label">Kelas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statHariIni">0</div>
+                    <div class="stat-label">Hari Ini</div>
+                </div>
+            </div>
+
+            <!-- Main Menu -->
+            <div class="card">
+                <div class="card-header">
+                    <span>Menu Utama</span>
+                </div>
+                <div class="card-body">
+                    <div class="menu-grid">
+                        <a href="#jamaah" class="menu-item" onclick="navigateTo('jamaah')">
+                            <span class="menu-icon">&#128100;</span>
+                            <span class="menu-label">Jamaah</span>
+                            <span class="menu-sublabel">Kelola santri</span>
+                        </a>
+                        <a href="#kelas" class="menu-item" onclick="navigateTo('kelas')">
+                            <span class="menu-icon">&#128218;</span>
+                            <span class="menu-label">Kelas</span>
+                            <span class="menu-sublabel">Pengajian</span>
+                        </a>
+                        <a href="#kehadiran" class="menu-item" onclick="navigateTo('kehadiran')">
+                            <span class="menu-icon">&#9989;</span>
+                            <span class="menu-label">Kehadiran</span>
+                            <span class="menu-sublabel">Absensi</span>
+                        </a>
+                        <a href="#penilaian" class="menu-item" onclick="navigateTo('penilaian')">
+                            <span class="menu-icon">&#128202;</span>
+                            <span class="menu-label">Penilaian</span>
+                            <span class="menu-sublabel">Nilai & akhlak</span>
+                        </a>
+                        <a href="#mandiri" class="menu-item" onclick="navigateTo('mandiri')">
+                            <span class="menu-icon">&#128214;</span>
+                            <span class="menu-label">Kelas Mandiri</span>
+                            <span class="menu-sublabel">Orang tua</span>
+                        </a>
+                        <a href="#catatan" class="menu-item" onclick="navigateTo('catatan')">
+                            <span class="menu-icon">&#128221;</span>
+                            <span class="menu-label">Catatan</span>
+                            <span class="menu-sublabel">Pembinaan</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <span>Aksi Cepat</span>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary btn-block" onclick="quickAttendance()">
+                        <span>&#9989;</span>
+                        Absen Hari Ini
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jamaah Page (Placeholder) -->
+        <div class="page" id="jamaahPage">
+            <div class="card">
+                <div class="card-header">
+                    <span>&#128100;</span>
+                    <span>Daftar Jamaah</span>
+                </div>
+                <div class="card-body">
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        Halaman ini akan menampilkan daftar jamaah.<br>
+                        <small>Fitur dalam pengembangan</small>
+                    </p>
+                    <button class="btn btn-primary btn-block" onclick="testAddJamaah()">
+                        + Tambah Jamaah (Test)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Other pages will be added here -->
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="#home" class="nav-item active" onclick="navigateTo('home')">
+            <span class="nav-icon">&#127968;</span>
+            <span class="nav-label">Beranda</span>
+        </a>
+        <a href="#jamaah" class="nav-item" onclick="navigateTo('jamaah')">
+            <span class="nav-icon">&#128100;</span>
+            <span class="nav-label">Jamaah</span>
+        </a>
+        <a href="#kehadiran" class="nav-item" onclick="navigateTo('kehadiran')">
+            <span class="nav-icon">&#9989;</span>
+            <span class="nav-label">Absen</span>
+        </a>
+        <a href="#penilaian" class="nav-item" onclick="navigateTo('penilaian')">
+            <span class="nav-icon">&#128202;</span>
+            <span class="nav-label">Nilai</span>
+        </a>
+        <a href="#more" class="nav-item" onclick="navigateTo('more')">
+            <span class="nav-icon">&#8942;</span>
+            <span class="nav-label">Lainnya</span>
+        </a>
+    </nav>
+
+    <!-- Scripts -->
+    <script type="module">
+        import DB from './app/db/db.js';
+        import Migrate from './app/db/migrate.js';
+        import JamaahService from './app/services/jamaahService.js';
+
+        // Make available globally for onclick handlers
+        window.DB = DB;
+        window.JamaahService = JamaahService;
+
+        // =================================================================
+        // App Initialization
+        // =================================================================
+        async function initApp() {
+            console.log('[App] Initializing...');
+
+            try {
+                // Initialize database
+                await DB.init();
+                console.log('[App] Database initialized');
+
+                // Run migrations
+                const migrationResult = await Migrate.run();
+                console.log('[App] Migrations complete:', migrationResult);
+
+                // Load initial data
+                await loadStats();
+
+                // Show home page
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('homePage').classList.add('active');
+
+                console.log('[App] Ready!');
+            } catch (error) {
+                console.error('[App] Initialization failed:', error);
+                document.getElementById('loadingState').innerHTML = `
+                    <p style="color: var(--danger-color);">
+                        Gagal memuat aplikasi.<br>
+                        <small>${error.message}</small>
+                    </p>
+                `;
+            }
+        }
+
+        // =================================================================
+        // Load Statistics
+        // =================================================================
+        async function loadStats() {
+            try {
+                const jamaahCount = await JamaahService.count();
+                document.getElementById('statJamaah').textContent = jamaahCount;
+
+                // Placeholder for other stats
+                document.getElementById('statKelas').textContent = '0';
+                document.getElementById('statHariIni').textContent = '0';
+            } catch (error) {
+                console.error('[App] Failed to load stats:', error);
+            }
+        }
+        window.loadStats = loadStats;
+
+        // =================================================================
+        // Navigation
+        // =================================================================
+        window.navigateTo = function(page) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+            // Show target page
+            const targetPage = document.getElementById(page + 'Page');
+            if (targetPage) {
+                targetPage.classList.add('active');
+            } else {
+                // Show placeholder for pages not yet created
+                document.getElementById('homePage').classList.add('active');
+                alert(`Halaman "${page}" dalam pengembangan`);
+                return;
+            }
+
+            // Update nav active state
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('href') === '#' + page) {
+                    item.classList.add('active');
+                }
+            });
+        };
+
+        // =================================================================
+        // Quick Actions
+        // =================================================================
+        window.quickAttendance = function() {
+            alert('Fitur absen cepat dalam pengembangan');
+        };
+
+        // =================================================================
+        // Test Functions
+        // =================================================================
+        window.testAddJamaah = async function() {
+            try {
+                const jamaah = await JamaahService.create({
+                    nama_lengkap: 'Test Jamaah ' + Date.now(),
+                    nama_panggilan: 'Test',
+                    jenis_kelamin: 'L',
+                    nama_orang_tua: 'Orang Tua Test'
+                });
+                alert('Jamaah ditambahkan: ' + jamaah.nama_lengkap);
+                await loadStats();
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        };
+
+        // =================================================================
+        // Offline Detection
+        // =================================================================
+        function updateOnlineStatus() {
+            const indicator = document.getElementById('offlineIndicator');
+            if (!navigator.onLine) {
+                indicator.classList.add('show');
+            } else {
+                indicator.classList.remove('show');
+            }
+        }
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus();
+
+        // =================================================================
+        // Start App
+        // =================================================================
+        initApp();
+    </script>
+</body>
+</html>
